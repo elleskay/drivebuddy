@@ -82,11 +82,10 @@ check_no_secret_leak() {
   fi
 }
 
+# DriveBuddy smoke checks. The template's ScamShield /reports checks were removed;
+# real per-feature checks (auth 401, profile, vehicles, ...) are added as those
+# modules land (Phase B onward).
 check "Health endpoint" check_health
-check "POST /reports/check classifies" check_classify
-check "Validation rejects empty body (400)" check_validation
-check "Unknown fields rejected (400)" check_whitelist
-check "POST /reports returns a reportId" check_submit
 check "No secret material leaked" check_no_secret_leak
 
 echo
