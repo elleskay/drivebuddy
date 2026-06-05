@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
-import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Image, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useLocalSearchParams } from "expo-router";
-import Svg, { Circle, Line, Polyline } from "react-native-svg";
+import Svg, { Circle, Polyline } from "react-native-svg";
 import { api, type RouteDetail, type TripSummary } from "@/lib/api";
 
 export default function TripScreen() {
@@ -64,13 +64,26 @@ export default function TripScreen() {
   );
 }
 
+// Web Mercator helpers (256px tiles).
+const TILE = 256;
+const worldX = (lng: number, z: number) => ((lng + 180) / 360) * TILE * 2 ** z;
+const worldY = (lat: number, z: number) => {
+  const s = Math.sin((lat * Math.PI) / 180);
+  return (0.5 - Math.log((1 + s) / (1 - s)) / (4 * Math.PI)) * TILE * 2 ** z;
+};
+
+/**
+ * A real OpenStreetMap map built from raster tiles rendered as native <Image>s
+ * (no Google key, no WebView, no native map module), with the GPS route drawn
+ * over it as an SVG overlay. Picks the zoom that fits the route, lays out the
+ * covering tiles, and projects the points into the same pixel space.
+ */
 function RouteMap({ points }: { points: { latitude: number; longitude: number }[] }) {
-  const W = 320;
-  const H = 200;
-  const pad = 18;
+  const W = 340;
+  const H = 220;
   if (points.length < 2) {
     return (
-      <View style={[styles.map, { height: H, justifyContent: "center", alignItems: "center" }]}>
+      <View style={[styles.map, { width: W, height: H, justifyContent: "center", alignItems: "center" }]}>
         <Text style={styles.muted}>Not enough GPS points to draw the route.</Text>
       </View>
     );
@@ -81,36 +94,58 @@ function RouteMap({ points }: { points: { latitude: number; longitude: number }[
   const maxLat = Math.max(...lats);
   const minLng = Math.min(...lngs);
   const maxLng = Math.max(...lngs);
-  const spanLat = maxLat - minLat || 1e-6;
-  const spanLng = maxLng - minLng || 1e-6;
-  const scale = Math.min((W - pad * 2) / spanLng, (H - pad * 2) / spanLat);
-  const offX = (W - spanLng * scale) / 2;
-  const offY = (H - spanLat * scale) / 2;
-  const project = (p: { latitude: number; longitude: number }) => ({
-    x: offX + (p.longitude - minLng) * scale,
-    y: H - offY - (p.latitude - minLat) * scale, // invert y (north up)
-  });
-  const pts = points.map(project);
-  const polyline = pts.map((p) => `${p.x},${p.y}`).join(" ");
-  const start = pts[0]!;
-  const end = pts[pts.length - 1]!;
-  const grid = [0.2, 0.4, 0.6, 0.8];
+
+  // Largest zoom where the route bbox fits inside the viewport (with padding).
+  let z = 17;
+  for (; z > 2; z--) {
+    const dx = worldX(maxLng, z) - worldX(minLng, z);
+    const dy = worldY(minLat, z) - worldY(maxLat, z);
+    if (dx <= W - 60 && dy <= H - 60) break;
+  }
+  const max = 2 ** z;
+  const cx = (worldX(minLng, z) + worldX(maxLng, z)) / 2;
+  const cy = (worldY(minLat, z) + worldY(maxLat, z)) / 2;
+  const originX = cx - W / 2;
+  const originY = cy - H / 2;
+
+  const tiles: { key: string; left: number; top: number; uri: string }[] = [];
+  const tx0 = Math.floor(originX / TILE);
+  const tx1 = Math.floor((originX + W) / TILE);
+  const ty0 = Math.floor(originY / TILE);
+  const ty1 = Math.floor((originY + H) / TILE);
+  for (let tx = tx0; tx <= tx1; tx++) {
+    for (let ty = ty0; ty <= ty1; ty++) {
+      if (tx < 0 || ty < 0 || tx >= max || ty >= max) continue;
+      tiles.push({
+        key: `${tx}-${ty}`,
+        left: tx * TILE - originX,
+        top: ty * TILE - originY,
+        uri: `https://tile.openstreetmap.org/${z}/${tx}/${ty}.png`,
+      });
+    }
+  }
+
+  const screen = points.map((p) => ({ x: worldX(p.longitude, z) - originX, y: worldY(p.latitude, z) - originY }));
+  const polyline = screen.map((p) => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(" ");
+  const start = screen[0]!;
+  const end = screen[screen.length - 1]!;
 
   return (
-    <View style={[styles.map, { height: H }]}>
-      <Svg width={W} height={H}>
-        {/* faint grid so the route reads as a mapped trace, not an empty box */}
-        {grid.map((g) => (
-          <Line key={`v${g}`} x1={W * g} y1={0} x2={W * g} y2={H} stroke="#1b2740" strokeWidth={1} />
-        ))}
-        {grid.map((g) => (
-          <Line key={`h${g}`} x1={0} y1={H * g} x2={W} y2={H * g} stroke="#1b2740" strokeWidth={1} />
-        ))}
-        <Polyline points={polyline} fill="none" stroke="#4f8cff" strokeWidth={4} strokeLinejoin="round" strokeLinecap="round" />
-        <Circle cx={start.x} cy={start.y} r={6} fill="#7ee0a2" stroke="#fff" strokeWidth={2} />
-        <Circle cx={end.x} cy={end.y} r={6} fill="#e5484d" stroke="#fff" strokeWidth={2} />
+    <View style={[styles.map, { width: W, height: H }]}>
+      {tiles.map((t) => (
+        <Image
+          key={t.key}
+          source={{ uri: t.uri, headers: { "User-Agent": "DriveBuddy/1.0 (https://github.com/elleskay/drivebuddy)" } }}
+          style={{ position: "absolute", left: t.left, top: t.top, width: TILE, height: TILE }}
+        />
+      ))}
+      <Svg width={W} height={H} style={StyleSheet.absoluteFill}>
+        <Polyline points={polyline} fill="none" stroke="#1d4ed8" strokeOpacity={0.35} strokeWidth={8} strokeLinejoin="round" strokeLinecap="round" />
+        <Polyline points={polyline} fill="none" stroke="#4f8cff" strokeWidth={5} strokeLinejoin="round" strokeLinecap="round" />
+        <Circle cx={start.x} cy={start.y} r={7} fill="#22c55e" stroke="#fff" strokeWidth={2} />
+        <Circle cx={end.x} cy={end.y} r={7} fill="#e5484d" stroke="#fff" strokeWidth={2} />
       </Svg>
-      <Text style={styles.mapTag}>Route trace</Text>
+      <Text style={styles.mapTag}>© OpenStreetMap</Text>
     </View>
   );
 }
@@ -145,7 +180,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderRadius: 14,
     overflow: "hidden",
-    alignItems: "center",
+    alignSelf: "center",
   },
   muted: { color: "#5a6b8c", fontSize: 13 },
   mapTag: { position: "absolute", bottom: 8, left: 12, color: "#5a6b8c", fontSize: 11 },
