@@ -57,10 +57,10 @@ jobs:
           cache: npm
       - run: npm ci
       - name: Typecheck demo app
-        working-directory: apps/_demo
+        working-directory: apps/drivebuddy
         run: npm run typecheck
       - name: expo-doctor
-        working-directory: apps/_demo
+        working-directory: apps/drivebuddy
         run: npx --yes expo-doctor@latest || true
 
   api-build:
@@ -75,7 +75,7 @@ jobs:
           cache: npm
       - run: npm ci
       - name: Nest build
-        working-directory: services/_template
+        working-directory: services/api
         run: npm run build
 
   cdk-synth:
@@ -90,16 +90,16 @@ jobs:
           cache: npm
       - run: npm ci
       - name: Install CDK package deps
-        working-directory: infra/cdk/_template
+        working-directory: infra/cdk/drivebuddy
         run: npm install
       - name: cdk synth
-        working-directory: infra/cdk/_template
+        working-directory: infra/cdk/drivebuddy
         env:
           CDK_DEFAULT_ACCOUNT: "000000000000"
           CDK_DEFAULT_REGION: ap-southeast-1
           DATABASE_URL: postgres://placeholder
           JWT_SECRET: placeholder
-          PLATFORM_DEMO_API_PATH: services/_template
+          PLATFORM_DEMO_API_PATH: services/api
         run: npx cdk synth
 
   test:
@@ -168,7 +168,7 @@ jobs:
       - name: Verify signed-commit attestations
         # Skips while allowed-signers is empty (template default); enforces and
         # fails closed once a real app populates it.
-        run: bash scripts/verify-attestations.sh apps/_template/verification
+        run: bash scripts/verify-attestations.sh apps/drivebuddy/verification
       - name: Guard self-test (signed artifacts + empty allow-list must exit 2)
         run: |
           set +e

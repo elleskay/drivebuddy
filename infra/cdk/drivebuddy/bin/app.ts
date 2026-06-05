@@ -11,4 +11,4 @@ const env = {
 
 // Rename this stack id to match your app (e.g. "ScamShieldApi").
 // The id becomes the CloudFormation stack name.
-new ApiStack(app, "AppApi", { env });
+new ApiStack(app, "DriveBuddyApi", { env });

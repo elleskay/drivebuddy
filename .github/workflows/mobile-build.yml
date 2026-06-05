@@ -33,7 +33,7 @@ permissions:
   contents: read
 
 env:
-  APP_DIR: ${{ vars.APP_DIR || 'apps/_demo' }}
+  APP_DIR: ${{ vars.APP_DIR || 'apps/drivebuddy' }}
   NODE_VERSION: "22"
 
 jobs:

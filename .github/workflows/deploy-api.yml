@@ -25,7 +25,7 @@ concurrency:
 env:
   # Override with repo variables if your paths differ from the convention.
   API_DIR: ${{ vars.API_DIR || 'services/api' }}
-  CDK_DIR: ${{ vars.CDK_DIR || 'infra/cdk/_template' }}
+  CDK_DIR: ${{ vars.CDK_DIR || 'infra/cdk/drivebuddy' }}
   NODE_VERSION: "22"
 
 jobs:

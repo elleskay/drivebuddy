@@ -1,5 +1,5 @@
 {
-  "name": "@service/api",
+  "name": "@drivebuddy/api",
   "version": "0.1.0",
   "private": true,
   "description": "NestJS API for the mobile platform. Copy and rename per app.",
