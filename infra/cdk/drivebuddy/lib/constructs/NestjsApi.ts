@@ -146,6 +146,16 @@ export class NestjsApi extends Construct {
       stdio: "inherit",
     });
 
+    // Prisma: the generated client + query-engine binary must live in the bundle.
+    // The prod install above strips scripts, so the postinstall `prisma generate`
+    // never ran — generate it explicitly here. The engine for the Lambda arch
+    // (arm64) comes from the binaryTargets in prisma/schema.prisma.
+    const prismaDir = path.join(props.servicePath, "prisma");
+    if (fs.existsSync(path.join(prismaDir, "schema.prisma"))) {
+      fs.cpSync(prismaDir, path.join(stage, "prisma"), { recursive: true });
+      execSync("npx --yes prisma@6 generate", { cwd: stage, stdio: "inherit" });
+    }
+
     const commonFn = {
       runtime: lambda.Runtime.NODEJS_20_X,
       architecture: lambda.Architecture.ARM_64,
