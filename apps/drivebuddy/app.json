@@ -32,6 +32,12 @@
           "color": "#4f8cff"
         }
       ],
+      [
+        "expo-av",
+        {
+          "microphonePermission": "DriveBuddy uses your microphone for the voice assistant."
+        }
+      ],
       ["expo-build-properties", { "android": { "usesCleartextTraffic": false } }]
     ],
     "experiments": {

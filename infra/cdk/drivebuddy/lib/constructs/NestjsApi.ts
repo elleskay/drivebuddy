@@ -179,6 +179,19 @@ export class NestjsApi extends Construct {
       }
     }
 
+    // Slim the bundle: the AWS SDK v3 and its @smithy core each ship BOTH a CJS
+    // and an ESM build. `nest build` emits CommonJS, so node loads dist-cjs and
+    // the dist-es copies are dead weight — dropping them (and TypeScript defs)
+    // reclaims ~30-40 MB and keeps us comfortably under Lambda's 250 MB unzipped
+    // limit as more @aws-sdk clients are added (bedrock/polly/transcribe/s3/sqs).
+    for (const scope of ["@aws-sdk", "@smithy"]) {
+      const scopeDir = path.join(stage, "node_modules", scope);
+      if (!fs.existsSync(scopeDir)) continue;
+      for (const pkg of fs.readdirSync(scopeDir)) {
+        fs.rmSync(path.join(scopeDir, pkg, "dist-es"), { recursive: true, force: true });
+      }
+    }
+
     const commonFn = {
       runtime: lambda.Runtime.NODEJS_20_X,
       architecture: lambda.Architecture.ARM_64,

@@ -34,6 +34,15 @@ export default function HomeScreen() {
           <Text style={styles.chevron}>›</Text>
         </Pressable>
 
+        <Pressable style={styles.card} onPress={() => router.push("/assistant")}>
+          <Text style={styles.cardIcon}>🤖</Text>
+          <View style={styles.cardBody}>
+            <Text style={styles.cardTitle}>AI Assistant</Text>
+            <Text style={styles.cardDesc}>Ask about ERP, traffic, parking & more</Text>
+          </View>
+          <Text style={styles.chevron}>›</Text>
+        </Pressable>
+
         <Pressable style={styles.card} onPress={() => router.push("/dashboard")}>
           <Text style={styles.cardIcon}>🌤️</Text>
           <View style={styles.cardBody}>
@@ -85,7 +94,7 @@ export default function HomeScreen() {
         </Pressable>
 
         <View style={styles.comingSoon}>
-          <Text style={styles.comingSoonText}>Notifications & AI assistant coming next</Text>
+          <Text style={styles.comingSoonText}>Smart recommendations coming next</Text>
         </View>
 
         <Pressable style={styles.signOut} onPress={signOut}>

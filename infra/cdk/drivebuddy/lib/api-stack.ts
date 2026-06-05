@@ -1,5 +1,7 @@
 import * as path from "path";
 import * as cdk from "aws-cdk-lib";
+import * as s3 from "aws-cdk-lib/aws-s3";
+import * as iam from "aws-cdk-lib/aws-iam";
 import { Construct } from "constructs";
 import { NestjsApi } from "./constructs/NestjsApi";
 
@@ -12,7 +14,17 @@ export class ApiStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props?: cdk.StackProps) {
     super(scope, id, props);
 
-    new NestjsApi(this, "Api", {
+    // Audio scratch bucket for the AI voice assistant: holds uploaded clips and
+    // Transcribe output. Objects expire quickly — they're transient.
+    const audioBucket = new s3.Bucket(this, "AudioBucket", {
+      lifecycleRules: [{ expiration: cdk.Duration.days(1) }],
+      enforceSSL: true,
+      blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
+      removalPolicy: cdk.RemovalPolicy.DESTROY,
+      autoDeleteObjects: true,
+    });
+
+    const api = new NestjsApi(this, "Api", {
       servicePath: path.resolve(__dirname, "..", "..", "..", "..", API_REL),
       environment: {
         DATABASE_URL: process.env.DATABASE_URL ?? "",
@@ -21,10 +33,28 @@ export class ApiStack extends cdk.Stack {
         CLASSIFIER_API_URL: process.env.CLASSIFIER_API_URL ?? "",
         CLASSIFIER_API_KEY: process.env.CLASSIFIER_API_KEY ?? "",
         DD_SERVICE: process.env.DD_SERVICE ?? "mobile-platform-api",
+        LTA_ACCOUNT_KEY: process.env.LTA_ACCOUNT_KEY ?? "",
+        AUDIO_BUCKET: audioBucket.bucketName,
+        BEDROCK_MODEL_ID: process.env.BEDROCK_MODEL_ID ?? "anthropic.claude-3-haiku-20240307-v1:0",
       },
       // OpenSearch is off by default (a domain is not free). Turn on when you
       // need clustering of similar reports.
       enableOpenSearch: process.env.ENABLE_OPENSEARCH === "true",
     });
+
+    // The HTTP Lambda runs the AI assistant: it reads/writes the audio bucket and
+    // calls Bedrock (LLM), Polly (TTS) and Transcribe (STT).
+    audioBucket.grantReadWrite(api.httpFunction);
+    api.httpFunction.addToRolePolicy(
+      new iam.PolicyStatement({
+        actions: [
+          "bedrock:InvokeModel",
+          "polly:SynthesizeSpeech",
+          "transcribe:StartTranscriptionJob",
+          "transcribe:GetTranscriptionJob",
+        ],
+        resources: ["*"],
+      }),
+    );
   }
 }

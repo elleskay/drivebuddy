@@ -39,6 +39,7 @@ function Gate() {
       <Stack.Screen name="profile" options={{ title: "Profile" }} />
       <Stack.Screen name="vehicles" options={{ title: "My Vehicles" }} />
       <Stack.Screen name="dashboard" options={{ title: "Live Info" }} />
+      <Stack.Screen name="assistant" options={{ title: "AI Assistant" }} />
       <Stack.Screen name="journey" options={{ title: "Journey" }} />
       <Stack.Screen name="history" options={{ title: "Trip History" }} />
       <Stack.Screen name="trip/[routeId]" options={{ title: "Trip Summary" }} />

@@ -168,7 +168,21 @@ export const api = {
     authed("/notifications/settings", { method: "PATCH", body: JSON.stringify(patch) }) as Promise<NotificationSettings>,
   sendTestNotification: () =>
     authed("/notifications/test", { method: "POST", body: JSON.stringify({}) }) as Promise<AppNotification | null>,
+
+  // AI assistant
+  aiAsk: (text: string, speak = false) =>
+    authed("/ai/ask", { method: "POST", body: JSON.stringify({ text, speak }) }) as Promise<AiAnswer>,
+  aiVoice: (audioBase64: string, format = "m4a", speak = true) =>
+    authed("/ai/voice", { method: "POST", body: JSON.stringify({ audioBase64, format, speak }) }) as Promise<AiVoiceAnswer>,
 };
+
+export interface AiAnswer {
+  answer: string;
+  audio?: { base64: string; format: "mp3" };
+}
+export interface AiVoiceAnswer extends AiAnswer {
+  transcript: string;
+}
 
 export type NotificationType = "PRE_DRIVE" | "REAL_TIME" | "POST_TRIP" | "SYSTEM";
 export interface AppNotification {
