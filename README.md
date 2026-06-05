@@ -20,33 +20,33 @@ Expo (React Native) · NestJS · Prisma · Neon Postgres · AWS Lambda + API Gat
 
 <table>
   <tr>
-    <td align="center"><img src="docs/screenshots/login.svg" width="210"/><br/><sub><b>Sign in</b></sub></td>
-    <td align="center"><img src="docs/screenshots/home.svg" width="210"/><br/><sub><b>Home</b></sub></td>
-    <td align="center"><img src="docs/screenshots/journey.svg" width="210"/><br/><sub><b>Journey Mode</b></sub></td>
+    <td align="center"><img src="docs/screenshots/login.png" width="210"/><br/><sub><b>Sign in</b></sub></td>
+    <td align="center"><img src="docs/screenshots/home.png" width="210"/><br/><sub><b>Home</b></sub></td>
+    <td align="center"><img src="docs/screenshots/journey.png" width="210"/><br/><sub><b>Journey Mode</b></sub></td>
   </tr>
   <tr>
-    <td align="center"><img src="docs/screenshots/trip-summary.svg" width="210"/><br/><sub><b>Trip Summary</b></sub></td>
-    <td align="center"><img src="docs/screenshots/dashboard.svg" width="210"/><br/><sub><b>Live Info</b></sub></td>
-    <td align="center"><img src="docs/screenshots/assistant.svg" width="210"/><br/><sub><b>AI Assistant</b></sub></td>
+    <td align="center"><img src="docs/screenshots/trip-summary.png" width="210"/><br/><sub><b>Trip Summary</b></sub></td>
+    <td align="center"><img src="docs/screenshots/dashboard.png" width="210"/><br/><sub><b>Live Info</b></sub></td>
+    <td align="center"><img src="docs/screenshots/assistant.png" width="210"/><br/><sub><b>AI Assistant</b></sub></td>
   </tr>
   <tr>
-    <td align="center"><img src="docs/screenshots/recommendations.svg" width="210"/><br/><sub><b>Recommendations</b></sub></td>
-    <td align="center"><img src="docs/screenshots/notifications.svg" width="210"/><br/><sub><b>Notifications</b></sub></td>
-    <td align="center"><img src="docs/screenshots/notification-settings.svg" width="210"/><br/><sub><b>Alert Settings</b></sub></td>
+    <td align="center"><img src="docs/screenshots/recommendations.png" width="210"/><br/><sub><b>Recommendations</b></sub></td>
+    <td align="center"><img src="docs/screenshots/notifications.png" width="210"/><br/><sub><b>Notifications</b></sub></td>
+    <td align="center"><img src="docs/screenshots/notification-settings.png" width="210"/><br/><sub><b>Alert Settings</b></sub></td>
   </tr>
   <tr>
-    <td align="center"><img src="docs/screenshots/history.svg" width="210"/><br/><sub><b>Trip History</b></sub></td>
-    <td align="center"><img src="docs/screenshots/vehicles.svg" width="210"/><br/><sub><b>My Vehicles</b></sub></td>
-    <td align="center"><img src="docs/screenshots/profile.svg" width="210"/><br/><sub><b>Profile</b></sub></td>
+    <td align="center"><img src="docs/screenshots/history.png" width="210"/><br/><sub><b>Trip History</b></sub></td>
+    <td align="center"><img src="docs/screenshots/vehicles.png" width="210"/><br/><sub><b>My Vehicles</b></sub></td>
+    <td align="center"><img src="docs/screenshots/profile.png" width="210"/><br/><sub><b>Profile</b></sub></td>
   </tr>
   <tr>
-    <td align="center"><img src="docs/screenshots/settings.svg" width="210"/><br/><sub><b>Settings</b></sub></td>
+    <td align="center"><img src="docs/screenshots/settings.png" width="210"/><br/><sub><b>Settings</b></sub></td>
     <td></td>
     <td></td>
   </tr>
 </table>
 
-> Mockups generated from the real screen code via [`docs/screenshots/generate.mjs`](docs/screenshots/generate.mjs) — run `node docs/screenshots/generate.mjs` to regenerate.
+> Real screenshots captured from the app running on Android against the live API. (Live traffic / ERP / carpark on the dashboard show "add LTA key" placeholders until a DataMall key is configured.)
 
 ---
 
