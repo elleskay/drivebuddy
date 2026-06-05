@@ -20,6 +20,12 @@
     "plugins": [
       "expo-router",
       "expo-secure-store",
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "DriveBuddy uses your location to track your drive route and distance."
+        }
+      ],
       ["expo-build-properties", { "android": { "usesCleartextTraffic": false } }]
     ],
     "experiments": {

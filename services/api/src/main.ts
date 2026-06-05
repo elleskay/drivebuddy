@@ -1,3 +1,5 @@
+// Serialize BigInt as string in JSON responses (Prisma RoutePoint ids).
+(BigInt.prototype as unknown as { toJSON: () => string }).toJSON = function () { return this.toString(); };
 import { NestFactory } from "@nestjs/core";
 import { ValidationPipe } from "@nestjs/common";
 import { AppModule } from "./app.module";

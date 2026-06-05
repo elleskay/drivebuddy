@@ -37,6 +37,8 @@ model User {
   updatedAt    DateTime  @updatedAt
 
   vehicles Vehicle[]
+  routes   DrivingRoute[]
+  trips    TripSummary[]
 
   @@index([provider, providerId])
 }
@@ -55,4 +57,64 @@ model Vehicle {
 
   @@unique([userId, vehicleNumber])
   @@index([userId])
+}
+
+/// A recorded drive: a series of GPS points with start/end + computed stats.
+model DrivingRoute {
+  id            String       @id @default(uuid())
+  userId        String
+  user          User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name          String?
+  startTime     DateTime     @default(now())
+  endTime       DateTime?
+  isActive      Boolean      @default(true)
+  totalDistance Float        @default(0) // km
+  averageSpeed  Float        @default(0) // km/h
+  maxSpeed      Float        @default(0) // km/h
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+  points        RoutePoint[]
+  summary       TripSummary?
+
+  @@index([userId, startTime])
+  @@index([userId, isActive])
+}
+
+/// A single GPS sample within a route.
+model RoutePoint {
+  id        BigInt       @id @default(autoincrement())
+  routeId   String
+  route     DrivingRoute @relation(fields: [routeId], references: [id], onDelete: Cascade)
+  timestamp DateTime
+  latitude  Float
+  longitude Float
+  altitude  Float?
+  speed     Float?
+  accuracy  Float?
+
+  @@index([routeId, timestamp])
+}
+
+/// Cost + performance summary generated when a trip completes.
+model TripSummary {
+  id          String       @id @default(uuid())
+  routeId     String       @unique
+  route       DrivingRoute @relation(fields: [routeId], references: [id], onDelete: Cascade)
+  userId      String
+  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  routeName   String?
+  distanceKm  Float
+  durationMin Int
+  startTime   DateTime
+  endTime     DateTime
+  startLat    Float?
+  startLng    Float?
+  endLat      Float?
+  endLng      Float?
+  erpCost     Decimal      @default(0) @db.Decimal(10, 2)
+  fuelCost    Decimal      @default(0) @db.Decimal(10, 2)
+  parkingCost Decimal      @default(0) @db.Decimal(10, 2)
+  createdAt   DateTime     @default(now())
+
+  @@index([userId, createdAt])
 }

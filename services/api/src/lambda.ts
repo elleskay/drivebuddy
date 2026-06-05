@@ -1,3 +1,5 @@
+// Serialize BigInt as string in JSON responses (Prisma RoutePoint ids).
+(BigInt.prototype as unknown as { toJSON: () => string }).toJSON = function () { return this.toString(); };
 // Must be first: registers Reflect.metadata before any decorated class loads,
 // so the design:paramtypes metadata (emitted by nest build / tsc) is stored and
 // NestJS DI can resolve constructor injection.

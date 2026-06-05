@@ -132,7 +132,72 @@ export const api = {
   erp: () => authed("/external/dashboard/erp") as Promise<Feed<ErpItem[]>>,
   carpark: () => authed("/external/dashboard/carpark") as Promise<Feed<CarparkItem[]>>,
   petrol: () => authed("/external/dashboard/petrol") as Promise<Feed<PetrolItem[]>>,
+
+  // Trips / GPS tracking
+  startRoute: (name?: string) =>
+    authed("/drive-monitor/routes", { method: "POST", body: JSON.stringify({ name }) }) as Promise<DrivingRoute>,
+  addPoints: (routeId: string, points: GpsSample[]) =>
+    authed(`/drive-monitor/routes/${routeId}/points`, {
+      method: "POST",
+      body: JSON.stringify({ points }),
+    }) as Promise<DrivingRoute>,
+  completeRoute: (routeId: string) =>
+    authed(`/drive-monitor/routes/${routeId}/complete`, { method: "POST" }) as Promise<{
+      route: RouteDetail;
+      summary: TripSummary;
+    }>,
+  listRoutes: () => authed("/drive-monitor/routes") as Promise<DrivingRoute[]>,
+  getActiveRoute: () => authed("/drive-monitor/routes/active") as Promise<DrivingRoute | null>,
+  getRoute: (id: string) => authed(`/drive-monitor/routes/${id}`) as Promise<RouteDetail>,
+  listTrips: () => authed("/trips") as Promise<TripSummary[]>,
+  getTrip: (routeId: string) => authed(`/trips/${routeId}`) as Promise<TripSummary>,
 };
+
+export interface DrivingRoute {
+  id: string;
+  name: string | null;
+  startTime: string;
+  endTime: string | null;
+  isActive: boolean;
+  totalDistance: number;
+  averageSpeed: number;
+  maxSpeed: number;
+}
+export interface RoutePointLite {
+  latitude: number;
+  longitude: number;
+  timestamp: string;
+  speed: number | null;
+  altitude: number | null;
+}
+export interface RouteDetail extends DrivingRoute {
+  points: RoutePointLite[];
+}
+export interface GpsSample {
+  latitude: number;
+  longitude: number;
+  timestamp: string;
+  altitude?: number;
+  speed?: number;
+  accuracy?: number;
+}
+export interface TripSummary {
+  id: string;
+  routeId: string;
+  routeName: string | null;
+  distanceKm: number;
+  durationMin: number;
+  startTime: string;
+  endTime: string;
+  startLat: number | null;
+  startLng: number | null;
+  endLat: number | null;
+  endLng: number | null;
+  erpCost: string;
+  fuelCost: string;
+  parkingCost: string;
+  createdAt: string;
+}
 
 export interface Feed<T> {
   source: string;

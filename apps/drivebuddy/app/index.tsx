@@ -13,11 +13,29 @@ export default function HomeScreen() {
         <Text style={styles.greeting}>Hi {user?.fullName?.split(" ")[0] ?? "there"} 👋</Text>
         <Text style={styles.sub}>Welcome to DriveBuddy</Text>
 
+        <Pressable style={[styles.card, styles.primaryCard]} onPress={() => router.push("/journey")}>
+          <Text style={styles.cardIcon}>🧭</Text>
+          <View style={styles.cardBody}>
+            <Text style={styles.cardTitle}>Start a Drive</Text>
+            <Text style={styles.cardDesc}>Track your route, distance & cost</Text>
+          </View>
+          <Text style={styles.chevron}>›</Text>
+        </Pressable>
+
         <Pressable style={styles.card} onPress={() => router.push("/dashboard")}>
           <Text style={styles.cardIcon}>🌤️</Text>
           <View style={styles.cardBody}>
             <Text style={styles.cardTitle}>Live Info</Text>
             <Text style={styles.cardDesc}>Weather, traffic, ERP, carparks, petrol</Text>
+          </View>
+          <Text style={styles.chevron}>›</Text>
+        </Pressable>
+
+        <Pressable style={styles.card} onPress={() => router.push("/history")}>
+          <Text style={styles.cardIcon}>🛣️</Text>
+          <View style={styles.cardBody}>
+            <Text style={styles.cardTitle}>Trip History</Text>
+            <Text style={styles.cardDesc}>Past drives & summaries</Text>
           </View>
           <Text style={styles.chevron}>›</Text>
         </Pressable>
@@ -41,7 +59,7 @@ export default function HomeScreen() {
         </Pressable>
 
         <View style={styles.comingSoon}>
-          <Text style={styles.comingSoonText}>Trips & AI assistant coming next</Text>
+          <Text style={styles.comingSoonText}>Notifications & AI assistant coming next</Text>
         </View>
 
         <Pressable style={styles.signOut} onPress={signOut}>
@@ -67,6 +85,7 @@ const styles = StyleSheet.create({
     padding: 16,
     gap: 14,
   },
+  primaryCard: { borderColor: "#4f8cff", backgroundColor: "#16223a" },
   cardIcon: { fontSize: 26 },
   cardBody: { flex: 1 },
   cardTitle: { color: "#e7eefc", fontSize: 17, fontWeight: "700" },
