@@ -61,6 +61,15 @@ export default function HomeScreen() {
           <Text style={styles.chevron}>›</Text>
         </Pressable>
 
+        <Pressable style={styles.card} onPress={() => router.push("/recommendations")}>
+          <Text style={styles.cardIcon}>💡</Text>
+          <View style={styles.cardBody}>
+            <Text style={styles.cardTitle}>Recommendations</Text>
+            <Text style={styles.cardDesc}>Insights & tips from your drives</Text>
+          </View>
+          <Text style={styles.chevron}>›</Text>
+        </Pressable>
+
         <Pressable style={styles.card} onPress={() => router.push("/notifications")}>
           <Text style={styles.cardIcon}>🔔</Text>
           <View style={styles.cardBody}>

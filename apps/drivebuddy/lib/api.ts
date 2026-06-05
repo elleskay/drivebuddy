@@ -174,7 +174,38 @@ export const api = {
     authed("/ai/ask", { method: "POST", body: JSON.stringify({ text, speak }) }) as Promise<AiAnswer>,
   aiVoice: (audioBase64: string, format = "m4a", speak = true) =>
     authed("/ai/voice", { method: "POST", body: JSON.stringify({ audioBase64, format, speak }) }) as Promise<AiVoiceAnswer>,
+
+  // Route analysis + recommendations
+  insights: () => authed("/route-analysis/insights") as Promise<Insights>,
+  listRecommendations: () => authed("/route-analysis/recommendations") as Promise<Recommendation[]>,
+  refreshRecommendations: () =>
+    authed("/route-analysis/recommendations/refresh", { method: "POST" }) as Promise<Recommendation[]>,
+  dismissRecommendation: (id: string) =>
+    authed(`/route-analysis/recommendations/${id}/dismiss`, { method: "POST" }) as Promise<{ ok: boolean }>,
 };
+
+export interface Insights {
+  totalTrips: number;
+  totalDistanceKm: number;
+  totalCost: number;
+  avgCostPerTrip: number;
+  avgDistanceKm: number;
+  last7: { trips: number; cost: number };
+  prev7: { trips: number; cost: number };
+  peakHour: number | null;
+  busiestDay: string | null;
+  erpPeakTrips: number;
+  topDestinations: { label: string; lat: number; lng: number; count: number }[];
+}
+export interface Recommendation {
+  id: string;
+  category: "erp" | "fuel" | "routine" | "safety" | "carpark";
+  title: string;
+  body: string;
+  score: number;
+  dismissed: boolean;
+  createdAt: string;
+}
 
 export interface AiAnswer {
   answer: string;

@@ -47,9 +47,10 @@ model User {
   vehicles      Vehicle[]
   routes        DrivingRoute[]
   trips         TripSummary[]
-  notifications Notification[]
-  devices       DeviceToken[]
-  settings      NotificationSettings?
+  notifications   Notification[]
+  devices         DeviceToken[]
+  settings        NotificationSettings?
+  recommendations Recommendation[]
 
   @@index([provider, providerId])
 }
@@ -162,6 +163,23 @@ model NotificationSettings {
   traffic   Boolean  @default(true)
   weather   Boolean  @default(true)
   updatedAt DateTime @updatedAt
+}
+
+/// A behaviour-derived suggestion for the driver, produced by the route-analysis
+/// daily job (and on-demand). Dismissed rows are kept as tombstones so the same
+/// suggestion isn't re-surfaced after the user dismisses it.
+model Recommendation {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  category  String // erp | fuel | routine | safety | carpark
+  title     String
+  body      String
+  score     Float    @default(0) // higher = more relevant; drives sort order
+  dismissed Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([userId, dismissed])
 }
 
 /// An Expo push token registered by a device. One row per device token.

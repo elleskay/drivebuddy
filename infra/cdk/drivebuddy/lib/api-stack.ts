@@ -2,6 +2,8 @@ import * as path from "path";
 import * as cdk from "aws-cdk-lib";
 import * as s3 from "aws-cdk-lib/aws-s3";
 import * as iam from "aws-cdk-lib/aws-iam";
+import * as events from "aws-cdk-lib/aws-events";
+import * as targets from "aws-cdk-lib/aws-events-targets";
 import { Construct } from "constructs";
 import { NestjsApi } from "./constructs/NestjsApi";
 
@@ -56,5 +58,17 @@ export class ApiStack extends cdk.Stack {
         resources: ["*"],
       }),
     );
+
+    // Daily behaviour-analysis cron: EventBridge → SQS (the construct's queue) →
+    // worker `analyze-all` job. 18:00 UTC = 02:00 SGT (off-peak). The worker
+    // regenerates recommendations and notifies users with fresh tips.
+    new events.Rule(this, "DailyAnalysis", {
+      schedule: events.Schedule.cron({ minute: "0", hour: "18" }),
+      targets: [
+        new targets.SqsQueue(api.queue, {
+          message: events.RuleTargetInput.fromObject({ kind: "analyze-all" }),
+        }),
+      ],
+    });
   }
 }
