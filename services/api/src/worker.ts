@@ -8,12 +8,17 @@
 // tokens Expo reports as no longer registered.
 import type { SQSEvent, SQSBatchResponse, SQSRecord } from "aws-lambda";
 import { PrismaClient } from "@prisma/client";
-import { Expo, type ExpoPushMessage, type ExpoPushTicket } from "expo-server-sdk";
 import { generateForUser } from "./route-analysis/analysis";
 
 // Reused across warm invocations (one client/connection per container).
 const prisma = new PrismaClient();
-const expo = new Expo();
+
+// Call the Expo push service over HTTP directly (no SDK). expo-server-sdk is
+// ESM-only and can't be require()'d from the CommonJS bundle nest build emits
+// (ERR_REQUIRE_ESM crashes the worker on init), so we hit the documented
+// endpoint ourselves: https://docs.expo.dev/push-notifications/sending-notifications/
+const EXPO_PUSH_URL = "https://exp.host/--/api/v2/push/send";
+const PUSH_TOKEN_RE = /^Expo(nent)?PushToken\[[^\]]+\]$/;
 
 interface PushJob {
   kind: "push";
@@ -24,12 +29,19 @@ interface PushJob {
   data?: Record<string, unknown>;
 }
 
+interface ExpoTicket {
+  status: "ok" | "error";
+  id?: string;
+  message?: string;
+  details?: { error?: string };
+}
+
 async function handlePush(job: PushJob): Promise<void> {
   const devices = await prisma.deviceToken.findMany({ where: { userId: job.userId } });
-  const tokens = devices.map((d) => d.token).filter((t) => Expo.isExpoPushToken(t));
+  const tokens = devices.map((d) => d.token).filter((t) => PUSH_TOKEN_RE.test(t));
   if (tokens.length === 0) return;
 
-  const messages: ExpoPushMessage[] = tokens.map((to) => ({
+  const messages = tokens.map((to) => ({
     to,
     sound: "default",
     title: job.title,
@@ -37,19 +49,30 @@ async function handlePush(job: PushJob): Promise<void> {
     data: { notificationId: job.notificationId, ...(job.data ?? {}) },
   }));
 
-  const tickets: ExpoPushTicket[] = [];
-  for (const chunk of expo.chunkPushNotifications(messages)) {
-    tickets.push(...(await expo.sendPushNotificationsAsync(chunk)));
+  const dead: string[] = [];
+  // Expo accepts up to 100 messages per request.
+  for (let i = 0; i < messages.length; i += 100) {
+    const chunk = messages.slice(i, i + 100);
+    const chunkTokens = tokens.slice(i, i + 100);
+    const res = await fetch(EXPO_PUSH_URL, {
+      method: "POST",
+      headers: { "content-type": "application/json", accept: "application/json" },
+      body: JSON.stringify(chunk),
+    });
+    if (!res.ok) {
+      console.error(`expo push HTTP ${res.status}: ${await res.text()}`);
+      continue;
+    }
+    const json = (await res.json()) as { data?: ExpoTicket[] };
+    (json.data ?? []).forEach((ticket, idx) => {
+      if (ticket.status === "error" && ticket.details?.error === "DeviceNotRegistered") {
+        const token = chunkTokens[idx];
+        if (token) dead.push(token);
+      }
+    });
   }
 
-  // Prune tokens Expo says are dead so we stop paying to send to them.
-  const dead: string[] = [];
-  tickets.forEach((ticket, i) => {
-    if (ticket.status === "error" && ticket.details?.error === "DeviceNotRegistered") {
-      const token = tokens[i];
-      if (token) dead.push(token);
-    }
-  });
+  // Prune tokens Expo says are dead so we stop sending to them.
   if (dead.length) {
     await prisma.deviceToken.deleteMany({ where: { token: { in: dead } } });
   }
