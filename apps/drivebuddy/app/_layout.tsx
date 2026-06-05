@@ -1,7 +1,7 @@
 import { Stack, useRouter, useSegments } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useEffect } from "react";
-import { ActivityIndicator, View } from "react-native";
+import { ActivityIndicator, Pressable, Text, View } from "react-native";
 import { AuthProvider, useAuth } from "@/lib/auth-context";
 
 function Gate() {
@@ -42,6 +42,18 @@ function Gate() {
       <Stack.Screen name="journey" options={{ title: "Journey" }} />
       <Stack.Screen name="history" options={{ title: "Trip History" }} />
       <Stack.Screen name="trip/[routeId]" options={{ title: "Trip Summary" }} />
+      <Stack.Screen
+        name="notifications"
+        options={{
+          title: "Notifications",
+          headerRight: () => (
+            <Pressable onPress={() => router.push("/notification-settings")} hitSlop={10}>
+              <Text style={{ fontSize: 20 }}>⚙️</Text>
+            </Pressable>
+          ),
+        }}
+      />
+      <Stack.Screen name="notification-settings" options={{ title: "Notification Settings" }} />
     </Stack>
   );
 }

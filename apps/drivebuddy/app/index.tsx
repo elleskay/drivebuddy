@@ -1,11 +1,23 @@
+import { useCallback, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useRouter } from "expo-router";
+import { useFocusEffect, useRouter } from "expo-router";
+import { api } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
 
 export default function HomeScreen() {
   const { user, signOut } = useAuth();
   const router = useRouter();
+  const [unread, setUnread] = useState(0);
+
+  useFocusEffect(
+    useCallback(() => {
+      api
+        .unreadCount()
+        .then(({ count }) => setUnread(count))
+        .catch(() => undefined);
+    }, []),
+  );
 
   return (
     <SafeAreaView style={styles.container} edges={["bottom"]}>
@@ -37,6 +49,20 @@ export default function HomeScreen() {
             <Text style={styles.cardTitle}>Trip History</Text>
             <Text style={styles.cardDesc}>Past drives & summaries</Text>
           </View>
+          <Text style={styles.chevron}>›</Text>
+        </Pressable>
+
+        <Pressable style={styles.card} onPress={() => router.push("/notifications")}>
+          <Text style={styles.cardIcon}>🔔</Text>
+          <View style={styles.cardBody}>
+            <Text style={styles.cardTitle}>Notifications</Text>
+            <Text style={styles.cardDesc}>Alerts & trip summaries</Text>
+          </View>
+          {unread > 0 ? (
+            <View style={styles.badge}>
+              <Text style={styles.badgeText}>{unread > 99 ? "99+" : unread}</Text>
+            </View>
+          ) : null}
           <Text style={styles.chevron}>›</Text>
         </Pressable>
 
@@ -87,6 +113,16 @@ const styles = StyleSheet.create({
   },
   primaryCard: { borderColor: "#4f8cff", backgroundColor: "#16223a" },
   cardIcon: { fontSize: 26 },
+  badge: {
+    minWidth: 22,
+    height: 22,
+    borderRadius: 11,
+    paddingHorizontal: 6,
+    backgroundColor: "#e5484d",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  badgeText: { color: "#fff", fontSize: 12, fontWeight: "800" },
   cardBody: { flex: 1 },
   cardTitle: { color: "#e7eefc", fontSize: 17, fontWeight: "700" },
   cardDesc: { color: "#9fb0d0", fontSize: 13, marginTop: 2 },

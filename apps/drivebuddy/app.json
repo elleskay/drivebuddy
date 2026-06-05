@@ -26,6 +26,12 @@
           "locationWhenInUsePermission": "DriveBuddy uses your location to track your drive route and distance."
         }
       ],
+      [
+        "expo-notifications",
+        {
+          "color": "#4f8cff"
+        }
+      ],
       ["expo-build-properties", { "android": { "usesCleartextTraffic": false } }]
     ],
     "experiments": {

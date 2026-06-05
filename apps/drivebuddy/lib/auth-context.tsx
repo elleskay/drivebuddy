@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import { api } from "./api";
 import { clearTokens, getAccessToken } from "./auth";
+import { registerForPush, unregisterPush } from "./push";
 
 interface AuthState {
   ready: boolean; // initial token load finished
@@ -25,6 +26,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         try {
           const p = await api.getProfile();
           setUser({ id: p.id, email: p.email, fullName: p.fullName });
+          void registerForPush();
         } catch {
           await clearTokens();
         }
@@ -40,12 +42,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     async signIn(email, password) {
       const r = await api.login(email, password);
       setUser(r.user);
+      void registerForPush();
     },
     async signUp(email, password, fullName) {
       const r = await api.register(email, password, fullName);
       setUser(r.user);
+      void registerForPush();
     },
     async signOut() {
+      await unregisterPush();
       await clearTokens();
       setUser(null);
     },

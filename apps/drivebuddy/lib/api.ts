@@ -151,7 +151,48 @@ export const api = {
   getRoute: (id: string) => authed(`/drive-monitor/routes/${id}`) as Promise<RouteDetail>,
   listTrips: () => authed("/trips") as Promise<TripSummary[]>,
   getTrip: (routeId: string) => authed(`/trips/${routeId}`) as Promise<TripSummary>,
+
+  // Notifications + push
+  registerDevice: (token: string, platform?: "ios" | "android") =>
+    authed("/notifications/devices", { method: "POST", body: JSON.stringify({ token, platform }) }) as Promise<{ ok: boolean }>,
+  unregisterDevice: (token: string) =>
+    authed("/notifications/devices", { method: "DELETE", body: JSON.stringify({ token }) }) as Promise<{ ok: boolean }>,
+  listNotifications: () => authed("/notifications") as Promise<AppNotification[]>,
+  unreadCount: () => authed("/notifications/unread-count") as Promise<{ count: number }>,
+  markNotificationRead: (id: string) =>
+    authed(`/notifications/${id}/read`, { method: "POST" }) as Promise<{ ok: boolean }>,
+  markAllNotificationsRead: () =>
+    authed("/notifications/read-all", { method: "POST" }) as Promise<{ updated: number }>,
+  getNotificationSettings: () => authed("/notifications/settings") as Promise<NotificationSettings>,
+  updateNotificationSettings: (patch: Partial<NotificationSettings>) =>
+    authed("/notifications/settings", { method: "PATCH", body: JSON.stringify(patch) }) as Promise<NotificationSettings>,
+  sendTestNotification: () =>
+    authed("/notifications/test", { method: "POST", body: JSON.stringify({}) }) as Promise<AppNotification | null>,
 };
+
+export type NotificationType = "PRE_DRIVE" | "REAL_TIME" | "POST_TRIP" | "SYSTEM";
+export interface AppNotification {
+  id: string;
+  type: NotificationType;
+  title: string;
+  body: string;
+  data: Record<string, unknown> | null;
+  read: boolean;
+  createdAt: string;
+}
+export interface NotificationSettings {
+  userId: string;
+  preDrive: boolean;
+  realTime: boolean;
+  postTrip: boolean;
+  system: boolean;
+  speed: boolean;
+  hazard: boolean;
+  erp: boolean;
+  traffic: boolean;
+  weather: boolean;
+  updatedAt: string;
+}
 
 export interface DrivingRoute {
   id: string;

@@ -21,6 +21,14 @@ enum FuelType {
   Electric
 }
 
+/// The four notification categories carried over from the .NET app.
+enum NotificationType {
+  PRE_DRIVE
+  REAL_TIME
+  POST_TRIP
+  SYSTEM
+}
+
 /// A registered user. Combines auth identity and profile (the old .NET split a
 /// separate UserProfile keyed by an external Entra UserId; auth is now ours).
 model User {
@@ -36,9 +44,12 @@ model User {
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
 
-  vehicles Vehicle[]
-  routes   DrivingRoute[]
-  trips    TripSummary[]
+  vehicles      Vehicle[]
+  routes        DrivingRoute[]
+  trips         TripSummary[]
+  notifications Notification[]
+  devices       DeviceToken[]
+  settings      NotificationSettings?
 
   @@index([provider, providerId])
 }
@@ -117,4 +128,50 @@ model TripSummary {
   createdAt   DateTime     @default(now())
 
   @@index([userId, createdAt])
+}
+
+/// An in-app notification. Mirrored to a push if the device has a token + the
+/// channel is enabled in NotificationSettings.
+model Notification {
+  id        String           @id @default(uuid())
+  userId    String
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      NotificationType
+  title     String
+  body      String
+  data      Json? // arbitrary payload (e.g. { routeId })
+  read      Boolean          @default(false)
+  createdAt DateTime         @default(now())
+
+  @@index([userId, createdAt])
+  @@index([userId, read])
+}
+
+/// Per-user notification preferences: the four type toggles plus the five
+/// real-time alert channels from the .NET app.
+model NotificationSettings {
+  userId    String   @id
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  preDrive  Boolean  @default(true)
+  realTime  Boolean  @default(true)
+  postTrip  Boolean  @default(true)
+  system    Boolean  @default(true)
+  speed     Boolean  @default(true)
+  hazard    Boolean  @default(true)
+  erp       Boolean  @default(true)
+  traffic   Boolean  @default(true)
+  weather   Boolean  @default(true)
+  updatedAt DateTime @updatedAt
+}
+
+/// An Expo push token registered by a device. One row per device token.
+model DeviceToken {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  token     String   @unique
+  platform  String? // ios | android
+  createdAt DateTime @default(now())
+
+  @@index([userId])
 }

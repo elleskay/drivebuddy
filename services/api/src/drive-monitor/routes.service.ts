@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException } from "@nestjs/common";
 import { PrismaService } from "../prisma/prisma.service";
 import { TripsService } from "../trips/trips.service";
+import { NotificationsService } from "../notifications/notifications.service";
 import { routeStats } from "./geo";
 import { AddPointsDto, StartRouteDto } from "./dto";
 
@@ -9,6 +10,7 @@ export class RoutesService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly trips: TripsService,
+    private readonly notifications: NotificationsService,
   ) {}
 
   /** Start a new active route, deactivating any previously-active one. */
@@ -64,6 +66,19 @@ export class RoutesService {
       data: { isActive: false, endTime: route.endTime ?? new Date() },
     });
     const summary = await this.trips.createForRoute(userId, routeId);
+
+    // Notify the driver their post-trip summary is ready (honours settings; the
+    // worker fans it out to push). Best-effort — never fail completion on this.
+    const totalCost = Number(summary.fuelCost) + Number(summary.erpCost) + Number(summary.parkingCost);
+    await this.notifications
+      .create(userId, {
+        type: "POST_TRIP",
+        title: "Trip complete 🚗",
+        body: `${summary.distanceKm.toFixed(1)} km · ${summary.durationMin} min · $${totalCost.toFixed(2)}`,
+        data: { routeId },
+      })
+      .catch(() => undefined);
+
     return { route: await this.getOne(userId, routeId), summary };
   }
 
