@@ -153,7 +153,14 @@ export class NestjsApi extends Construct {
     const prismaDir = path.join(props.servicePath, "prisma");
     if (fs.existsSync(path.join(prismaDir, "schema.prisma"))) {
       fs.cpSync(prismaDir, path.join(stage, "prisma"), { recursive: true });
-      execSync("npx --yes prisma@6 generate", { cwd: stage, stdio: "inherit" });
+      // Install the prisma CLI INTO the stage so `prisma generate` resolves the
+      // stage's own node_modules/@prisma/client (a bare `npx prisma` runs from the
+      // npx cache and can't see it). Then generate emits the client + arm64 engine.
+      execSync("npm install prisma@6 --no-save --no-audit --no-fund --no-package-lock", {
+        cwd: stage,
+        stdio: "inherit",
+      });
+      execSync("npx prisma generate", { cwd: stage, stdio: "inherit" });
     }
 
     const commonFn = {
