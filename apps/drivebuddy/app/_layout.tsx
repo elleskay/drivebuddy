@@ -38,6 +38,7 @@ function Gate() {
       <Stack.Screen name="register" options={{ headerShown: false }} />
       <Stack.Screen name="profile" options={{ title: "Profile" }} />
       <Stack.Screen name="vehicles" options={{ title: "My Vehicles" }} />
+      <Stack.Screen name="dashboard" options={{ title: "Live Info" }} />
     </Stack>
   );
 }

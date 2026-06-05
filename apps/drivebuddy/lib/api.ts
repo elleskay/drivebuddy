@@ -125,4 +125,47 @@ export const api = {
   setMainVehicle: (id: string) =>
     authed(`/vehicles/${id}/set-main`, { method: "POST" }) as Promise<Vehicle>,
   removeVehicle: (id: string) => authed(`/vehicles/${id}`, { method: "DELETE" }) as Promise<unknown>,
+
+  // Public Singapore live-data feeds (no auth needed).
+  weather: () => authed("/external/dashboard/weather") as Promise<Feed<WeatherItem[]>>,
+  traffic: () => authed("/external/dashboard/traffic") as Promise<Feed<TrafficItem[]>>,
+  erp: () => authed("/external/dashboard/erp") as Promise<Feed<ErpItem[]>>,
+  carpark: () => authed("/external/dashboard/carpark") as Promise<Feed<CarparkItem[]>>,
+  petrol: () => authed("/external/dashboard/petrol") as Promise<Feed<PetrolItem[]>>,
 };
+
+export interface Feed<T> {
+  source: string;
+  lastUpdated: string;
+  keyRequired?: boolean;
+  data: T;
+}
+export interface WeatherItem {
+  area: string;
+  forecast: string;
+}
+export interface TrafficItem {
+  type: string;
+  message: string;
+  latitude: number;
+  longitude: number;
+}
+export interface ErpItem {
+  zone: string;
+  chargeAmount: number;
+  startTime: string;
+  endTime: string;
+  vehicleType: string;
+}
+export interface CarparkItem {
+  id: string;
+  area: string;
+  development: string;
+  availableLots: number;
+  lotType: string;
+}
+export interface PetrolItem {
+  brand: string;
+  product: string;
+  price: number;
+}

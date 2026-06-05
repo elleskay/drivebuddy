@@ -13,6 +13,15 @@ export default function HomeScreen() {
         <Text style={styles.greeting}>Hi {user?.fullName?.split(" ")[0] ?? "there"} 👋</Text>
         <Text style={styles.sub}>Welcome to DriveBuddy</Text>
 
+        <Pressable style={styles.card} onPress={() => router.push("/dashboard")}>
+          <Text style={styles.cardIcon}>🌤️</Text>
+          <View style={styles.cardBody}>
+            <Text style={styles.cardTitle}>Live Info</Text>
+            <Text style={styles.cardDesc}>Weather, traffic, ERP, carparks, petrol</Text>
+          </View>
+          <Text style={styles.chevron}>›</Text>
+        </Pressable>
+
         <Pressable style={styles.card} onPress={() => router.push("/vehicles")}>
           <Text style={styles.cardIcon}>🚗</Text>
           <View style={styles.cardBody}>
@@ -32,7 +41,7 @@ export default function HomeScreen() {
         </Pressable>
 
         <View style={styles.comingSoon}>
-          <Text style={styles.comingSoonText}>Dashboard, trips & assistant coming next</Text>
+          <Text style={styles.comingSoonText}>Trips & AI assistant coming next</Text>
         </View>
 
         <Pressable style={styles.signOut} onPress={signOut}>
