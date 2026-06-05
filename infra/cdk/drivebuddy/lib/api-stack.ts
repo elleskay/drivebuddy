@@ -37,7 +37,7 @@ export class ApiStack extends cdk.Stack {
         DD_SERVICE: process.env.DD_SERVICE ?? "mobile-platform-api",
         LTA_ACCOUNT_KEY: process.env.LTA_ACCOUNT_KEY ?? "",
         AUDIO_BUCKET: audioBucket.bucketName,
-        BEDROCK_MODEL_ID: process.env.BEDROCK_MODEL_ID ?? "anthropic.claude-3-haiku-20240307-v1:0",
+        BEDROCK_MODEL_ID: process.env.BEDROCK_MODEL_ID ?? "apac.amazon.nova-lite-v1:0",
       },
       // OpenSearch is off by default (a domain is not free). Turn on when you
       // need clustering of similar reports.
@@ -51,10 +51,15 @@ export class ApiStack extends cdk.Stack {
       new iam.PolicyStatement({
         actions: [
           "bedrock:InvokeModel",
+          "bedrock:InvokeModelWithResponseStream",
+          "bedrock:Converse",
+          "bedrock:ConverseStream",
           "polly:SynthesizeSpeech",
           "transcribe:StartTranscriptionJob",
           "transcribe:GetTranscriptionJob",
         ],
+        // "*" so the cross-region inference profile and its backing foundation
+        // model ARNs (in multiple APAC regions) are all covered.
         resources: ["*"],
       }),
     );

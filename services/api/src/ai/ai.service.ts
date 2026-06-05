@@ -1,5 +1,5 @@
 import { Injectable, Logger, ServiceUnavailableException } from "@nestjs/common";
-import { BedrockRuntimeClient, InvokeModelCommand } from "@aws-sdk/client-bedrock-runtime";
+import { BedrockRuntimeClient, ConverseCommand } from "@aws-sdk/client-bedrock-runtime";
 import { PollyClient, SynthesizeSpeechCommand } from "@aws-sdk/client-polly";
 import {
   TranscribeClient,
@@ -17,8 +17,12 @@ export interface VoiceAnswer extends AiAnswer {
   transcript: string;
 }
 
-// Cheap + fast; available in ap-southeast-1. Override via env for Sonnet etc.
-const MODEL_ID = process.env.BEDROCK_MODEL_ID ?? "anthropic.claude-3-haiku-20240307-v1:0";
+// Amazon Nova Lite via the APAC cross-region inference profile: cheap, fast,
+// available in ap-southeast-1, and (unlike Anthropic models) it needs no use-case
+// form. Nova is only invokable through an inference profile, not the bare model
+// id. Override via env. Uses the Converse API so the request/response shape is
+// uniform across model families.
+const MODEL_ID = process.env.BEDROCK_MODEL_ID ?? "apac.amazon.nova-lite-v1:0";
 
 const SYSTEM_PROMPT =
   "You are DriveBuddy, an in-car voice assistant for drivers in Singapore. " +
@@ -59,35 +63,26 @@ export class AiService {
   private async invokeLlm(text: string): Promise<string> {
     try {
       const res = await this.bedrock.send(
-        new InvokeModelCommand({
+        new ConverseCommand({
           modelId: MODEL_ID,
-          contentType: "application/json",
-          accept: "application/json",
-          body: JSON.stringify({
-            anthropic_version: "bedrock-2023-05-31",
-            max_tokens: 400,
-            temperature: 0.4,
-            system: SYSTEM_PROMPT,
-            messages: [{ role: "user", content: [{ type: "text", text }] }],
-          }),
+          system: [{ text: SYSTEM_PROMPT }],
+          messages: [{ role: "user", content: [{ text }] }],
+          inferenceConfig: { maxTokens: 400, temperature: 0.4 },
         }),
       );
-      const decoded = JSON.parse(Buffer.from(res.body).toString("utf8")) as {
-        content?: { type: string; text?: string }[];
-      };
-      const answer = decoded.content?.map((c) => c.text ?? "").join("").trim();
+      const answer = res.output?.message?.content?.map((c) => c.text ?? "").join("").trim();
       return answer || "Sorry, I don't have an answer for that right now.";
     } catch (err) {
       const message = (err as Error).message;
       this.logger.error(`Bedrock invoke failed: ${message}`);
-      if (/AccessDenied|not authorized|could not be found|don't have access|model.*access/i.test(message)) {
+      if (/use case details|AccessDenied|not authorized|don't have access|model.*access/i.test(message)) {
         throw new ServiceUnavailableException(
           "The AI assistant isn't available yet - Bedrock model access must be enabled for this AWS account/region.",
         );
       }
       if (/throttl|too many|rate ?exceeded|quota|limit/i.test(message)) {
         throw new ServiceUnavailableException(
-          "The AI assistant is busy right now (rate limit reached). Please try again in a moment.",
+          "The AI assistant is busy right now (the account's daily Bedrock quota was reached). Please try again later.",
         );
       }
       throw new ServiceUnavailableException("The AI assistant is temporarily unavailable.");
