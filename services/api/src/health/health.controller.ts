@@ -8,7 +8,7 @@ export class HealthController {
   health(): { status: "ok"; service: string; time: string } {
     return {
       status: "ok",
-      service: process.env.DD_SERVICE ?? "mobile-platform-api",
+      service: process.env.DD_SERVICE ?? "drivebuddy-api",
       time: new Date().toISOString(),
     };
   }

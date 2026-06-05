@@ -82,10 +82,16 @@ check_no_secret_leak() {
   fi
 }
 
-# DriveBuddy smoke checks. The template's ScamShield /reports checks were removed;
-# real per-feature checks (auth 401, profile, vehicles, ...) are added as those
-# modules land (Phase B onward).
+# Protected route must reject an unauthenticated request (auth is wired).
+check_auth_enforced() {
+  local code
+  code=$(curl -sS -o /dev/null -w "%{http_code}" --max-time 10 "$URL/users/me")
+  [ "$code" = "401" ] || { note "expected 401 on /users/me without token, got $code"; return 1; }
+}
+
+# DriveBuddy smoke checks. Real per-feature checks are added as modules land.
 check "Health endpoint" check_health
+check "Protected route enforces auth (401)" check_auth_enforced
 check "No secret material leaked" check_no_secret_leak
 
 echo

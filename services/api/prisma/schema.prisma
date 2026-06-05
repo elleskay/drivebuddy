@@ -1,0 +1,54 @@
+// DriveBuddy database schema (Prisma + Neon Postgres).
+// Phase B: auth + user profile + vehicles. Further modules add their models here.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL") // pooled (runtime / Lambda)
+  directUrl = env("DIRECT_URL")   // direct (migrations)
+}
+
+enum FuelType {
+  Petrol
+  Hybrid
+  Electric
+}
+
+/// A registered user. Combines auth identity and profile (the old .NET split a
+/// separate UserProfile keyed by an external Entra UserId; auth is now ours).
+model User {
+  id           String    @id @default(uuid())
+  email        String    @unique
+  passwordHash String? // null for social-only accounts
+  fullName     String
+  gender       String?
+  dateOfBirth  DateTime? @db.Date
+  homeAddress  String?
+  provider     String    @default("local") // local | google | apple
+  providerId   String? // subject id from the social provider
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  vehicles Vehicle[]
+
+  @@index([provider, providerId])
+}
+
+/// A user's vehicle. First vehicle becomes main; vehicle number unique per user.
+model Vehicle {
+  id              String   @id @default(uuid())
+  userId          String
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  vehicleNumber   String
+  fuelType        FuelType
+  fuelConsumption Decimal  @db.Decimal(5, 2) // kWh/100km (electric) or L/100km (fuel)
+  isMain          Boolean  @default(false)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([userId, vehicleNumber])
+  @@index([userId])
+}
