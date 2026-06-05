@@ -80,9 +80,14 @@ export class AiService {
     } catch (err) {
       const message = (err as Error).message;
       this.logger.error(`Bedrock invoke failed: ${message}`);
-      if (/AccessDenied|not authorized|could not be found|don't have access/i.test(message)) {
+      if (/AccessDenied|not authorized|could not be found|don't have access|model.*access/i.test(message)) {
         throw new ServiceUnavailableException(
           "The AI assistant isn't available yet — Bedrock model access must be enabled for this AWS account/region.",
+        );
+      }
+      if (/throttl|too many|rate ?exceeded|quota|limit/i.test(message)) {
+        throw new ServiceUnavailableException(
+          "The AI assistant is busy right now (rate limit reached). Please try again in a moment.",
         );
       }
       throw new ServiceUnavailableException("The AI assistant is temporarily unavailable.");
