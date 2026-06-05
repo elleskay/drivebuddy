@@ -103,7 +103,7 @@ export default function HomeScreen() {
         </Pressable>
 
         <View style={styles.comingSoon}>
-          <Text style={styles.comingSoonText}>Smart recommendations coming next</Text>
+          <Text style={styles.comingSoonText}>Drive smart. Drive safe. 🇸🇬</Text>
         </View>
 
         <Pressable style={styles.signOut} onPress={signOut}>

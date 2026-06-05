@@ -11,11 +11,20 @@
       "bundleIdentifier": "com.elleskay.drivebuddy",
       "supportsTablet": true,
       "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "UIBackgroundModes": ["location", "audio"]
       }
     },
     "android": {
-      "package": "com.elleskay.drivebuddy"
+      "package": "com.elleskay.drivebuddy",
+      "permissions": [
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_BACKGROUND_LOCATION",
+        "FOREGROUND_SERVICE",
+        "FOREGROUND_SERVICE_LOCATION",
+        "RECORD_AUDIO"
+      ]
     },
     "plugins": [
       "expo-router",
@@ -23,7 +32,10 @@
       [
         "expo-location",
         {
-          "locationWhenInUsePermission": "DriveBuddy uses your location to track your drive route and distance."
+          "locationWhenInUsePermission": "DriveBuddy uses your location to track your drive route and distance.",
+          "locationAlwaysAndWhenInUsePermission": "DriveBuddy tracks your route in the background so your drive keeps recording when the screen is off.",
+          "isAndroidBackgroundLocationEnabled": true,
+          "isAndroidForegroundServiceEnabled": true
         }
       ],
       [

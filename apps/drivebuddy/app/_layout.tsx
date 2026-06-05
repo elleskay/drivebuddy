@@ -33,7 +33,18 @@ function Gate() {
         contentStyle: { backgroundColor: "#0b1220" },
       }}
     >
-      <Stack.Screen name="index" options={{ title: "DriveBuddy" }} />
+      <Stack.Screen
+        name="index"
+        options={{
+          title: "DriveBuddy",
+          headerRight: () => (
+            <Pressable onPress={() => router.push("/settings")} hitSlop={10}>
+              <Text style={{ fontSize: 20 }}>⚙️</Text>
+            </Pressable>
+          ),
+        }}
+      />
+      <Stack.Screen name="settings" options={{ title: "Settings" }} />
       <Stack.Screen name="login" options={{ headerShown: false }} />
       <Stack.Screen name="register" options={{ headerShown: false }} />
       <Stack.Screen name="profile" options={{ title: "Profile" }} />
