@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useLocalSearchParams } from "expo-router";
-import Svg, { Circle, Polyline } from "react-native-svg";
+import Svg, { Circle, Line, Polyline } from "react-native-svg";
 import { api, type RouteDetail, type TripSummary } from "@/lib/api";
 
 export default function TripScreen() {
@@ -42,7 +42,7 @@ export default function TripScreen() {
   return (
     <SafeAreaView style={styles.container} edges={["bottom"]}>
       <ScrollView contentContainerStyle={styles.inner}>
-        <RoutePath points={route?.points ?? []} />
+        <RouteMap points={route?.points ?? []} />
 
         <View style={styles.statsRow}>
           <Stat value={(route?.totalDistance ?? 0).toFixed(2)} unit="km" label="Distance" />
@@ -64,10 +64,10 @@ export default function TripScreen() {
   );
 }
 
-function RoutePath({ points }: { points: { latitude: number; longitude: number }[] }) {
+function RouteMap({ points }: { points: { latitude: number; longitude: number }[] }) {
   const W = 320;
   const H = 200;
-  const pad = 16;
+  const pad = 18;
   if (points.length < 2) {
     return (
       <View style={[styles.map, { height: H, justifyContent: "center", alignItems: "center" }]}>
@@ -84,22 +84,33 @@ function RoutePath({ points }: { points: { latitude: number; longitude: number }
   const spanLat = maxLat - minLat || 1e-6;
   const spanLng = maxLng - minLng || 1e-6;
   const scale = Math.min((W - pad * 2) / spanLng, (H - pad * 2) / spanLat);
+  const offX = (W - spanLng * scale) / 2;
+  const offY = (H - spanLat * scale) / 2;
   const project = (p: { latitude: number; longitude: number }) => ({
-    x: pad + (p.longitude - minLng) * scale,
-    y: H - pad - (p.latitude - minLat) * scale, // invert y (north up)
+    x: offX + (p.longitude - minLng) * scale,
+    y: H - offY - (p.latitude - minLat) * scale, // invert y (north up)
   });
   const pts = points.map(project);
   const polyline = pts.map((p) => `${p.x},${p.y}`).join(" ");
   const start = pts[0]!;
   const end = pts[pts.length - 1]!;
+  const grid = [0.2, 0.4, 0.6, 0.8];
 
   return (
     <View style={[styles.map, { height: H }]}>
       <Svg width={W} height={H}>
-        <Polyline points={polyline} fill="none" stroke="#4f8cff" strokeWidth={3} strokeLinejoin="round" />
-        <Circle cx={start.x} cy={start.y} r={5} fill="#7ee0a2" />
-        <Circle cx={end.x} cy={end.y} r={5} fill="#e5484d" />
+        {/* faint grid so the route reads as a mapped trace, not an empty box */}
+        {grid.map((g) => (
+          <Line key={`v${g}`} x1={W * g} y1={0} x2={W * g} y2={H} stroke="#1b2740" strokeWidth={1} />
+        ))}
+        {grid.map((g) => (
+          <Line key={`h${g}`} x1={0} y1={H * g} x2={W} y2={H * g} stroke="#1b2740" strokeWidth={1} />
+        ))}
+        <Polyline points={polyline} fill="none" stroke="#4f8cff" strokeWidth={4} strokeLinejoin="round" strokeLinecap="round" />
+        <Circle cx={start.x} cy={start.y} r={6} fill="#7ee0a2" stroke="#fff" strokeWidth={2} />
+        <Circle cx={end.x} cy={end.y} r={6} fill="#e5484d" stroke="#fff" strokeWidth={2} />
       </Svg>
+      <Text style={styles.mapTag}>Route trace</Text>
     </View>
   );
 }
@@ -137,6 +148,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   muted: { color: "#5a6b8c", fontSize: 13 },
+  mapTag: { position: "absolute", bottom: 8, left: 12, color: "#5a6b8c", fontSize: 11 },
   statsRow: { flexDirection: "row", gap: 10 },
   stat: {
     flex: 1,
