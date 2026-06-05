@@ -161,6 +161,22 @@ export class NestjsApi extends Construct {
         stdio: "inherit",
       });
       execSync("npx prisma generate", { cwd: stage, stdio: "inherit" });
+
+      // Slim the bundle to stay under Lambda's 250 MB unzipped limit: the prisma
+      // CLI + @prisma/engines are only needed during generate, and only the
+      // linux-arm64 query engine is needed at runtime — drop everything else.
+      for (const rel of ["node_modules/prisma", "node_modules/@prisma/engines"]) {
+        fs.rmSync(path.join(stage, rel), { recursive: true, force: true });
+      }
+      const clientDir = path.join(stage, "node_modules/.prisma/client");
+      if (fs.existsSync(clientDir)) {
+        for (const f of fs.readdirSync(clientDir)) {
+          const isEngine = f.startsWith("libquery_engine") || f.startsWith("query_engine");
+          if (isEngine && !f.includes("linux-arm64")) {
+            fs.rmSync(path.join(clientDir, f), { force: true });
+          }
+        }
+      }
     }
 
     const commonFn = {
