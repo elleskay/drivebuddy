@@ -1,21 +1,21 @@
 {
   "expo": {
-    "name": "mobile-platform-demo",
-    "slug": "mobile-platform-demo",
+    "name": "DriveBuddy",
+    "slug": "drivebuddy",
     "version": "0.1.0",
     "orientation": "portrait",
-    "scheme": "mpdemo",
+    "scheme": "drivebuddy",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
-      "bundleIdentifier": "com.elleskay.mobileplatformdemo",
+      "bundleIdentifier": "com.elleskay.drivebuddy",
       "supportsTablet": true,
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
       }
     },
     "android": {
-      "package": "com.elleskay.mobileplatformdemo"
+      "package": "com.elleskay.drivebuddy"
     },
     "plugins": [
       "expo-router",
@@ -24,6 +24,9 @@
     ],
     "experiments": {
       "typedRoutes": true
+    },
+    "extra": {
+      "apiUrl": "https://tq7rrvits7.execute-api.ap-southeast-1.amazonaws.com"
     }
   }
 }
