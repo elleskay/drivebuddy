@@ -39,7 +39,7 @@ function Gate() {
           title: "DriveBuddy",
           headerRight: () => (
             <Pressable onPress={() => router.push("/settings")} hitSlop={10}>
-              <Text style={{ fontSize: 20 }}>⚙️</Text>
+              <Text style={{ color: "#4f8cff", fontSize: 14, fontWeight: "600" }}>Settings</Text>
             </Pressable>
           ),
         }}
@@ -61,7 +61,7 @@ function Gate() {
           title: "Notifications",
           headerRight: () => (
             <Pressable onPress={() => router.push("/notification-settings")} hitSlop={10}>
-              <Text style={{ fontSize: 20 }}>⚙️</Text>
+              <Text style={{ color: "#4f8cff", fontSize: 14, fontWeight: "600" }}>Settings</Text>
             </Pressable>
           ),
         }}

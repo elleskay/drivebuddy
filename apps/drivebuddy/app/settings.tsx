@@ -7,7 +7,7 @@ import { useAuth } from "@/lib/auth-context";
 export default function SettingsScreen() {
   const router = useRouter();
   const { user, signOut } = useAuth();
-  const apiUrl = (Constants.expoConfig?.extra?.apiUrl as string | undefined) ?? "—";
+  const apiUrl = (Constants.expoConfig?.extra?.apiUrl as string | undefined) ?? "-";
   const version = Constants.expoConfig?.version ?? "0.1.0";
 
   return (
@@ -25,15 +25,15 @@ export default function SettingsScreen() {
 
         <Text style={styles.section}>Account</Text>
         <View style={styles.group}>
-          <Row label="Edit profile" icon="👤" onPress={() => router.push("/profile")} />
-          <Row label="My vehicles" icon="🚗" onPress={() => router.push("/vehicles")} />
-          <Row label="Notification settings" icon="🔔" onPress={() => router.push("/notification-settings")} last />
+          <Row label="Edit profile" onPress={() => router.push("/profile")} />
+          <Row label="My vehicles" onPress={() => router.push("/vehicles")} />
+          <Row label="Notification settings" onPress={() => router.push("/notification-settings")} last />
         </View>
 
         <Text style={styles.section}>Activity</Text>
         <View style={styles.group}>
-          <Row label="Trip history" icon="🛣️" onPress={() => router.push("/history")} />
-          <Row label="Recommendations" icon="💡" onPress={() => router.push("/recommendations")} last />
+          <Row label="Trip history" onPress={() => router.push("/history")} />
+          <Row label="Recommendations" onPress={() => router.push("/recommendations")} last />
         </View>
 
         <Text style={styles.section}>About</Text>
@@ -51,12 +51,10 @@ export default function SettingsScreen() {
   );
 }
 
-function Row({ label, icon, onPress, last }: { label: string; icon: string; onPress: () => void; last?: boolean }) {
+function Row({ label, onPress, last }: { label: string; onPress: () => void; last?: boolean }) {
   return (
     <Pressable style={[styles.row, !last && styles.rowBorder]} onPress={onPress}>
-      <Text style={styles.rowIcon}>{icon}</Text>
       <Text style={styles.rowLabel}>{label}</Text>
-      <Text style={styles.chevron}>›</Text>
     </Pressable>
   );
 }

@@ -2,14 +2,7 @@ import { useCallback, useState } from "react";
 import { ActivityIndicator, FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useFocusEffect, useRouter } from "expo-router";
-import { api, type AppNotification, type NotificationType } from "@/lib/api";
-
-const ICON: Record<NotificationType, string> = {
-  PRE_DRIVE: "⏰",
-  REAL_TIME: "⚠️",
-  POST_TRIP: "🚗",
-  SYSTEM: "🔔",
-};
+import { api, type AppNotification } from "@/lib/api";
 
 export default function NotificationsScreen() {
   const router = useRouter();
@@ -89,7 +82,6 @@ export default function NotificationsScreen() {
         ListEmptyComponent={<Text style={styles.empty}>No notifications yet.</Text>}
         renderItem={({ item }) => (
           <Pressable style={[styles.row, !item.read && styles.unread]} onPress={() => onTap(item)}>
-            <Text style={styles.icon}>{ICON[item.type]}</Text>
             <View style={{ flex: 1 }}>
               <Text style={styles.title}>{item.title}</Text>
               <Text style={styles.body}>{item.body}</Text>

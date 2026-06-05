@@ -58,20 +58,20 @@ export default function DashboardScreen() {
         contentContainerStyle={styles.inner}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#4f8cff" />}
       >
-        <Card title="🌤  Weather" subtitle="Next 2 hours · data.gov.sg">
+        <Card title="Weather" subtitle="Next 2 hours · data.gov.sg">
           {data?.weather.data.slice(0, 6).map((w) => (
             <Row key={w.area} left={w.area} right={w.forecast} />
           )) ?? null}
           {!data?.weather.data.length ? <Muted>No data</Muted> : null}
         </Card>
 
-        <Card title="⛽  Petrol (95)" subtitle="Indicative prices">
+        <Card title="Petrol (95)" subtitle="Indicative prices">
           {data?.petrol.data.map((p) => (
             <Row key={p.brand} left={`${p.brand} ${p.product}`} right={`$${p.price.toFixed(2)}`} />
           ))}
         </Card>
 
-        <Card title="🚧  Traffic incidents" subtitle="LTA DataMall">
+        <Card title="Traffic incidents" subtitle="LTA DataMall">
           {data?.traffic.keyRequired ? (
             <Muted>Add an LTA DataMall key to enable live traffic.</Muted>
           ) : data?.traffic.data.length ? (
@@ -81,7 +81,7 @@ export default function DashboardScreen() {
           )}
         </Card>
 
-        <Card title="🅿️  Carpark availability" subtitle="LTA DataMall">
+        <Card title="Carpark availability" subtitle="LTA DataMall">
           {data?.carpark.keyRequired ? (
             <Muted>Add an LTA DataMall key to enable carpark data.</Muted>
           ) : data?.carpark.data.length ? (
@@ -93,7 +93,7 @@ export default function DashboardScreen() {
           )}
         </Card>
 
-        <Card title="💳  ERP rates" subtitle="LTA DataMall">
+        <Card title="ERP rates" subtitle="LTA DataMall">
           {data?.erp.keyRequired ? (
             <Muted>Add an LTA DataMall key to enable ERP rates.</Muted>
           ) : data?.erp.data.length ? (

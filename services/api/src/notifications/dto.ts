@@ -16,7 +16,7 @@ export class UnregisterDeviceDto {
   token!: string;
 }
 
-/** All toggles optional — only the supplied ones are updated. */
+/** All toggles optional - only the supplied ones are updated. */
 export class UpdateSettingsDto {
   @IsOptional() @IsBoolean() preDrive?: boolean;
   @IsOptional() @IsBoolean() realTime?: boolean;
@@ -29,7 +29,7 @@ export class UpdateSettingsDto {
   @IsOptional() @IsBoolean() weather?: boolean;
 }
 
-/** Manually fire a notification to yourself — used to verify the push pipeline. */
+/** Manually fire a notification to yourself - used to verify the push pipeline. */
 export class TestNotificationDto {
   @IsOptional() @IsString() @MaxLength(120) title?: string;
   @IsOptional() @IsString() @MaxLength(500) body?: string;

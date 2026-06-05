@@ -113,7 +113,7 @@ export default function VehiclesScreen() {
               </Pressable>
             ) : null}
             <Pressable onPress={() => onDelete(item)} style={styles.deleteBtn}>
-              <Text style={styles.deleteText}>✕</Text>
+              <Text style={styles.deleteText}>Delete</Text>
             </Pressable>
           </View>
         )}

@@ -14,11 +14,11 @@ const TYPES: { key: ToggleKey; label: string; desc: string }[] = [
 ];
 
 const CHANNELS: { key: ToggleKey; label: string }[] = [
-  { key: "speed", label: "🚀 Speed warnings" },
-  { key: "hazard", label: "⚠️ Road hazards" },
-  { key: "erp", label: "💳 ERP charges" },
-  { key: "traffic", label: "🚧 Traffic incidents" },
-  { key: "weather", label: "🌧️ Weather" },
+  { key: "speed", label: "Speed warnings" },
+  { key: "hazard", label: "Road hazards" },
+  { key: "erp", label: "ERP charges" },
+  { key: "traffic", label: "Traffic incidents" },
+  { key: "weather", label: "Weather" },
 ];
 
 export default function NotificationSettingsScreen() {

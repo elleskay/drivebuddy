@@ -4,14 +4,6 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useFocusEffect } from "expo-router";
 import { api, type Insights, type Recommendation } from "@/lib/api";
 
-const ICON: Record<Recommendation["category"], string> = {
-  erp: "💳",
-  fuel: "⛽",
-  routine: "🔁",
-  safety: "🛡️",
-  carpark: "🅿️",
-};
-
 export default function RecommendationsScreen() {
   const [insights, setInsights] = useState<Insights | null>(null);
   const [recs, setRecs] = useState<Recommendation[]>([]);
@@ -70,18 +62,17 @@ export default function RecommendationsScreen() {
         ListHeaderComponent={insights ? <InsightsHeader insights={insights} /> : null}
         ListEmptyComponent={
           <Text style={styles.empty}>
-            No recommendations yet. Record a few drives and pull to refresh — tips appear as DriveBuddy learns your patterns.
+            No recommendations yet. Record a few drives and pull to refresh. Tips appear as DriveBuddy learns your patterns.
           </Text>
         }
         renderItem={({ item }) => (
           <View style={styles.card}>
-            <Text style={styles.cardIcon}>{ICON[item.category]}</Text>
             <View style={{ flex: 1 }}>
               <Text style={styles.cardTitle}>{item.title}</Text>
               <Text style={styles.cardBody}>{item.body}</Text>
             </View>
             <Pressable onPress={() => dismiss(item.id)} hitSlop={10}>
-              <Text style={styles.dismiss}>✕</Text>
+              <Text style={styles.dismiss}>X</Text>
             </Pressable>
           </View>
         )}
@@ -101,8 +92,8 @@ function InsightsHeader({ insights: i }: { insights: Insights }) {
       </View>
       <View style={styles.statsGrid}>
         <Stat value={`$${i.avgCostPerTrip.toFixed(2)}`} label="Avg / trip" />
-        <Stat value={i.busiestDay ?? "—"} label="Busiest day" />
-        <Stat value={i.peakHour != null ? formatHour(i.peakHour) : "—"} label="Peak hour" />
+        <Stat value={i.busiestDay ?? "-"} label="Busiest day" />
+        <Stat value={i.peakHour != null ? formatHour(i.peakHour) : "-"} label="Peak hour" />
       </View>
       <Text style={styles.section}>Recommendations</Text>
     </View>

@@ -65,7 +65,7 @@ export default function AssistantScreen() {
         if (res.audio) void playAudio(res.audio.base64);
       } catch (e) {
         const msg = e instanceof ApiError ? e.message : "Something went wrong. Try again.";
-        append({ id: nextId(), role: "assistant", text: `⚠️ ${msg}` });
+        append({ id: nextId(), role: "assistant", text: msg });
       } finally {
         setBusy(false);
       }
@@ -77,7 +77,7 @@ export default function AssistantScreen() {
     try {
       const perm = await Audio.requestPermissionsAsync();
       if (!perm.granted) {
-        append({ id: nextId(), role: "assistant", text: "⚠️ Microphone permission is needed for voice." });
+        append({ id: nextId(), role: "assistant", text: "Microphone permission is needed for voice." });
         return;
       }
       await Audio.setAudioModeAsync({ allowsRecordingIOS: true, playsInSilentModeIOS: true });
@@ -87,7 +87,7 @@ export default function AssistantScreen() {
       rec.current = recording;
       setRecording(true);
     } catch {
-      append({ id: nextId(), role: "assistant", text: "⚠️ Couldn't start recording." });
+      append({ id: nextId(), role: "assistant", text: "Couldn't start recording." });
     }
   }, [append]);
 
@@ -102,16 +102,16 @@ export default function AssistantScreen() {
       rec.current = null;
       if (!uri) throw new Error("no audio");
       const base64 = await FileSystem.readAsStringAsync(uri, { encoding: FileSystem.EncodingType.Base64 });
-      append({ id: nextId(), role: "user", text: "🎤 (voice message)" });
+      append({ id: nextId(), role: "user", text: "(voice message)" });
       const res = await api.aiVoice(base64, "m4a", true);
       setMessages((prev) =>
-        prev.map((m) => (m.text === "🎤 (voice message)" && m.role === "user" ? { ...m, text: res.transcript || "🎤 (voice message)" } : m)),
+        prev.map((m) => (m.text === "(voice message)" && m.role === "user" ? { ...m, text: res.transcript || "(voice message)" } : m)),
       );
       append({ id: nextId(), role: "assistant", text: res.answer });
       if (res.audio) void playAudio(res.audio.base64);
     } catch (e) {
       const msg = e instanceof ApiError ? e.message : "Couldn't process the recording.";
-      append({ id: nextId(), role: "assistant", text: `⚠️ ${msg}` });
+      append({ id: nextId(), role: "assistant", text: msg });
     } finally {
       setBusy(false);
     }
@@ -147,7 +147,7 @@ export default function AssistantScreen() {
             onPress={recording ? stopRecording : startRecording}
             disabled={busy && !recording}
           >
-            <Text style={styles.micIcon}>{recording ? "⏹" : "🎤"}</Text>
+            <Text style={styles.micIcon}>{recording ? "Stop" : "Mic"}</Text>
           </Pressable>
           <TextInput
             style={styles.input}
@@ -198,7 +198,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   micActive: { backgroundColor: "#e5484d", borderColor: "#e5484d" },
-  micIcon: { fontSize: 20 },
+  micIcon: { fontSize: 13, fontWeight: "700", color: "#e7eefc" },
   input: {
     flex: 1,
     backgroundColor: "#131c2e",

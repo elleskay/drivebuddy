@@ -38,7 +38,7 @@ export default function ProfileScreen() {
         dateOfBirth: /^\d{4}-\d{2}-\d{2}$/.test(dateOfBirth) ? dateOfBirth : undefined,
         homeAddress: homeAddress.trim() || undefined,
       });
-      setMsg("Saved ✓");
+      setMsg("Saved");
     } catch {
       setMsg("Could not save. Try again.");
     } finally {

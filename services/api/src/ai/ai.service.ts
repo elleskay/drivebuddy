@@ -22,7 +22,7 @@ const MODEL_ID = process.env.BEDROCK_MODEL_ID ?? "anthropic.claude-3-haiku-20240
 
 const SYSTEM_PROMPT =
   "You are DriveBuddy, an in-car voice assistant for drivers in Singapore. " +
-  "Answer concisely and conversationally — your replies are read aloud, so keep them to 1-3 short sentences. " +
+  "Answer concisely and conversationally - your replies are read aloud, so keep them to 1-3 short sentences. " +
   "You know about Singapore roads, ERP gantries and pricing, traffic, weather, parking (HDB/URA), fuel/petrol prices, " +
   "and safe-driving guidance. If asked something unrelated to driving, answer briefly and steer back to driving. " +
   "Never give unsafe advice; remind the driver to keep their eyes on the road when relevant.";
@@ -82,7 +82,7 @@ export class AiService {
       this.logger.error(`Bedrock invoke failed: ${message}`);
       if (/AccessDenied|not authorized|could not be found|don't have access|model.*access/i.test(message)) {
         throw new ServiceUnavailableException(
-          "The AI assistant isn't available yet — Bedrock model access must be enabled for this AWS account/region.",
+          "The AI assistant isn't available yet - Bedrock model access must be enabled for this AWS account/region.",
         );
       }
       if (/throttl|too many|rate ?exceeded|quota|limit/i.test(message)) {

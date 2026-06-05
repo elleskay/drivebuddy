@@ -141,7 +141,7 @@ export function buildRecommendations(i: Insights): RecommendationDraft[] {
     recs.push({
       category: "carpark",
       title: "Busier week on the road",
-      body: `You drove ${i.last7.trips} times this week vs ${i.prev7.trips} last week. Plan parking ahead — check live carpark availability at peak times.`,
+      body: `You drove ${i.last7.trips} times this week vs ${i.prev7.trips} last week. Plan parking ahead - check live carpark availability at peak times.`,
       score: 45,
     });
   }

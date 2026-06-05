@@ -52,9 +52,9 @@ export default function TripScreen() {
 
         <View style={styles.card}>
           <Text style={styles.cardTitle}>Trip cost</Text>
-          <CostRow label="⛽ Fuel" value={fuel} />
-          <CostRow label="💳 ERP" value={erp} />
-          <CostRow label="🅿️ Parking" value={parking} />
+          <CostRow label="Fuel" value={fuel} />
+          <CostRow label="ERP" value={erp} />
+          <CostRow label="Parking" value={parking} />
           <View style={styles.divider} />
           <CostRow label="Total" value={total} bold />
         </View>

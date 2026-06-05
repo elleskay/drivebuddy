@@ -98,7 +98,7 @@ async function handleAnalyzeAll(): Promise<void> {
         data: {
           userId,
           type: "SYSTEM",
-          title: "New driving tips 💡",
+          title: "New driving tips",
           body: `You have ${fresh.length} fresh recommendation${fresh.length > 1 ? "s" : ""} based on your recent drives.`,
           data: { kind: "recommendations" },
         },

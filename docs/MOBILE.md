@@ -31,7 +31,7 @@ reference implementations are in `apps/_template/native/`.
      manifest and compiles into the release APK.
    - **iOS (partial):** `withIosCallDirectory` / `withIosMessageFilter` add the
      App Group entitlement and stage the Swift under `ios/Extensions/`. They do
-     **not** create the Call Directory / Message Filter App Extension *targets* —
+     **not** create the Call Directory / Message Filter App Extension *targets* -
      that needs `@bacons/apple-targets` (point it at the staged Swift) plus an
      Apple Developer account for the per-extension App IDs, App Group, the
      `com.apple.developer.sms-spam-filter` entitlement, and provisioning profiles.

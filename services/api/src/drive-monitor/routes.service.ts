@@ -68,12 +68,12 @@ export class RoutesService {
     const summary = await this.trips.createForRoute(userId, routeId);
 
     // Notify the driver their post-trip summary is ready (honours settings; the
-    // worker fans it out to push). Best-effort — never fail completion on this.
+    // worker fans it out to push). Best-effort - never fail completion on this.
     const totalCost = Number(summary.fuelCost) + Number(summary.erpCost) + Number(summary.parkingCost);
     await this.notifications
       .create(userId, {
         type: "POST_TRIP",
-        title: "Trip complete 🚗",
+        title: "Trip complete",
         body: `${summary.distanceKm.toFixed(1)} km · ${summary.durationMin} min · $${totalCost.toFixed(2)}`,
         data: { routeId },
       })

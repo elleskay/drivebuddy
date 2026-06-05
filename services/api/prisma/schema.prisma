@@ -4,7 +4,7 @@
 generator client {
   provider = "prisma-client-js"
   // "native" for local dev; the Lambda is ARM64 on nodejs20.x (Amazon Linux 2023
-  // / OpenSSL 3), so the query engine must target linux-arm64-openssl-3.0.x —
+  // / OpenSSL 3), so the query engine must target linux-arm64-openssl-3.0.x,
   // otherwise the engine binary doesn't match the runtime and every request 500s.
   binaryTargets = ["native", "linux-arm64-openssl-3.0.x"]
 }

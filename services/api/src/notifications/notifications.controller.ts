@@ -65,7 +65,7 @@ export class NotificationsController {
     return this.notifications.create(user.id, {
       type: "SYSTEM",
       title: dto.title ?? "DriveBuddy",
-      body: dto.body ?? "This is a test notification 🎉",
+      body: dto.body ?? "This is a test notification",
       data: { kind: "test" },
     });
   }

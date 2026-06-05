@@ -49,7 +49,6 @@ export default function HistoryScreen() {
                 {item.totalDistance.toFixed(1)} km · avg {Math.round(item.averageSpeed)} km/h
               </Text>
             </View>
-            <Text style={styles.chevron}>›</Text>
           </Pressable>
         )}
       />

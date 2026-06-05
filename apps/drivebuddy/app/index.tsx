@@ -22,88 +22,72 @@ export default function HomeScreen() {
   return (
     <SafeAreaView style={styles.container} edges={["bottom"]}>
       <View style={styles.inner}>
-        <Text style={styles.greeting}>Hi {user?.fullName?.split(" ")[0] ?? "there"} 👋</Text>
+        <Text style={styles.greeting}>Hi {user?.fullName?.split(" ")[0] ?? "there"}</Text>
         <Text style={styles.sub}>Welcome to DriveBuddy</Text>
 
         <Pressable style={[styles.card, styles.primaryCard]} onPress={() => router.push("/journey")}>
-          <Text style={styles.cardIcon}>🧭</Text>
           <View style={styles.cardBody}>
             <Text style={styles.cardTitle}>Start a Drive</Text>
-            <Text style={styles.cardDesc}>Track your route, distance & cost</Text>
+            <Text style={styles.cardDesc}>Track your route, distance and cost</Text>
           </View>
-          <Text style={styles.chevron}>›</Text>
         </Pressable>
 
         <Pressable style={styles.card} onPress={() => router.push("/assistant")}>
-          <Text style={styles.cardIcon}>🤖</Text>
           <View style={styles.cardBody}>
             <Text style={styles.cardTitle}>AI Assistant</Text>
-            <Text style={styles.cardDesc}>Ask about ERP, traffic, parking & more</Text>
+            <Text style={styles.cardDesc}>Ask about ERP, traffic, parking and more</Text>
           </View>
-          <Text style={styles.chevron}>›</Text>
         </Pressable>
 
         <Pressable style={styles.card} onPress={() => router.push("/dashboard")}>
-          <Text style={styles.cardIcon}>🌤️</Text>
           <View style={styles.cardBody}>
             <Text style={styles.cardTitle}>Live Info</Text>
             <Text style={styles.cardDesc}>Weather, traffic, ERP, carparks, petrol</Text>
           </View>
-          <Text style={styles.chevron}>›</Text>
         </Pressable>
 
         <Pressable style={styles.card} onPress={() => router.push("/history")}>
-          <Text style={styles.cardIcon}>🛣️</Text>
           <View style={styles.cardBody}>
             <Text style={styles.cardTitle}>Trip History</Text>
-            <Text style={styles.cardDesc}>Past drives & summaries</Text>
+            <Text style={styles.cardDesc}>Past drives and summaries</Text>
           </View>
-          <Text style={styles.chevron}>›</Text>
         </Pressable>
 
         <Pressable style={styles.card} onPress={() => router.push("/recommendations")}>
-          <Text style={styles.cardIcon}>💡</Text>
           <View style={styles.cardBody}>
             <Text style={styles.cardTitle}>Recommendations</Text>
-            <Text style={styles.cardDesc}>Insights & tips from your drives</Text>
+            <Text style={styles.cardDesc}>Insights and tips from your drives</Text>
           </View>
-          <Text style={styles.chevron}>›</Text>
         </Pressable>
 
         <Pressable style={styles.card} onPress={() => router.push("/notifications")}>
-          <Text style={styles.cardIcon}>🔔</Text>
           <View style={styles.cardBody}>
             <Text style={styles.cardTitle}>Notifications</Text>
-            <Text style={styles.cardDesc}>Alerts & trip summaries</Text>
+            <Text style={styles.cardDesc}>Alerts and trip summaries</Text>
           </View>
           {unread > 0 ? (
             <View style={styles.badge}>
               <Text style={styles.badgeText}>{unread > 99 ? "99+" : unread}</Text>
             </View>
           ) : null}
-          <Text style={styles.chevron}>›</Text>
         </Pressable>
 
         <Pressable style={styles.card} onPress={() => router.push("/vehicles")}>
-          <Text style={styles.cardIcon}>🚗</Text>
           <View style={styles.cardBody}>
             <Text style={styles.cardTitle}>My Vehicles</Text>
             <Text style={styles.cardDesc}>Add and manage your vehicles</Text>
           </View>
-          <Text style={styles.chevron}>›</Text>
         </Pressable>
 
         <Pressable style={styles.card} onPress={() => router.push("/profile")}>
-          <Text style={styles.cardIcon}>👤</Text>
           <View style={styles.cardBody}>
             <Text style={styles.cardTitle}>Profile</Text>
             <Text style={styles.cardDesc}>Your personal details</Text>
           </View>
-          <Text style={styles.chevron}>›</Text>
         </Pressable>
 
         <View style={styles.comingSoon}>
-          <Text style={styles.comingSoonText}>Drive smart. Drive safe. 🇸🇬</Text>
+          <Text style={styles.comingSoonText}>Drive smart. Drive safe.</Text>
         </View>
 
         <Pressable style={styles.signOut} onPress={signOut}>
@@ -130,7 +114,6 @@ const styles = StyleSheet.create({
     gap: 14,
   },
   primaryCard: { borderColor: "#4f8cff", backgroundColor: "#16223a" },
-  cardIcon: { fontSize: 26 },
   badge: {
     minWidth: 22,
     height: 22,
@@ -144,7 +127,6 @@ const styles = StyleSheet.create({
   cardBody: { flex: 1 },
   cardTitle: { color: "#e7eefc", fontSize: 17, fontWeight: "700" },
   cardDesc: { color: "#9fb0d0", fontSize: 13, marginTop: 2 },
-  chevron: { color: "#4f8cff", fontSize: 28, fontWeight: "300" },
   comingSoon: { marginTop: "auto", alignItems: "center" },
   comingSoonText: { color: "#5a6b8c", fontSize: 13 },
   signOut: { alignItems: "center", paddingVertical: 14 },

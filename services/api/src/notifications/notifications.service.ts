@@ -161,7 +161,7 @@ export class NotificationsService {
         }),
       );
     } catch (err) {
-      // A failed push enqueue must not fail the originating request — the in-app
+      // A failed push enqueue must not fail the originating request - the in-app
       // notification is already persisted and will show in the center.
       this.logger.error(`push enqueue failed: ${(err as Error).message}`);
     }

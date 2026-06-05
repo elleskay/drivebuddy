@@ -17,7 +17,7 @@ export class ApiStack extends cdk.Stack {
     super(scope, id, props);
 
     // Audio scratch bucket for the AI voice assistant: holds uploaded clips and
-    // Transcribe output. Objects expire quickly — they're transient.
+    // Transcribe output. Objects expire quickly - they're transient.
     const audioBucket = new s3.Bucket(this, "AudioBucket", {
       lifecycleRules: [{ expiration: cdk.Duration.days(1) }],
       enforceSSL: true,
@@ -59,7 +59,7 @@ export class ApiStack extends cdk.Stack {
       }),
     );
 
-    // Daily behaviour-analysis cron: EventBridge → SQS (the construct's queue) →
+    // Daily behaviour-analysis cron: EventBridge to SQS (the construct's queue) to
     // worker `analyze-all` job. 18:00 UTC = 02:00 SGT (off-peak). The worker
     // regenerates recommendations and notifies users with fresh tips.
     new events.Rule(this, "DailyAnalysis", {

@@ -1,22 +1,22 @@
 <div align="center">
 
-# 🚗 DriveBuddy
+# DriveBuddy
 
 **Your AI-powered driving companion for Singapore.**
 
-Live drive tracking · post-trip cost breakdowns · real-time ERP / traffic / weather / parking · push alerts · an AI voice assistant · and behaviour-based recommendations — in one Expo app backed by a single NestJS API on AWS serverless.
+Live drive tracking, post-trip cost breakdowns, real-time ERP / traffic / weather / parking, push alerts, an AI voice assistant, and behaviour-based recommendations, in one Expo app backed by a single NestJS API on AWS serverless.
 
 [![CI](https://github.com/elleskay/drivebuddy/actions/workflows/ci.yml/badge.svg)](https://github.com/elleskay/drivebuddy/actions/workflows/ci.yml)
 [![Deploy API](https://github.com/elleskay/drivebuddy/actions/workflows/deploy-api.yml/badge.svg)](https://github.com/elleskay/drivebuddy/actions/workflows/deploy-api.yml)
 [![Security](https://github.com/elleskay/drivebuddy/actions/workflows/security.yml/badge.svg)](https://github.com/elleskay/drivebuddy/actions/workflows/security.yml)
 
-Expo (React Native) · NestJS · Prisma · Neon Postgres · AWS Lambda + API Gateway + SQS + EventBridge · Bedrock / Polly / Transcribe · ~**$0–2 / month**
+Expo (React Native), NestJS, Prisma, Neon Postgres, AWS Lambda + API Gateway + SQS + EventBridge, Bedrock / Polly / Transcribe. Roughly **$0 to $2 per month**.
 
 </div>
 
 ---
 
-## 📱 Screens
+## Screens
 
 <table>
   <tr>
@@ -46,77 +46,83 @@ Expo (React Native) · NestJS · Prisma · Neon Postgres · AWS Lambda + API Gat
   </tr>
 </table>
 
-> Real screenshots captured from the app running on Android against the live API. (Live traffic / ERP / carpark on the dashboard show "add LTA key" placeholders until a DataMall key is configured.)
+> Real screenshots captured from the app running on Android against the live API. Live traffic, ERP and carpark on the dashboard show "add LTA key" placeholders until a DataMall key is configured.
 
 ---
 
-## ✨ Features
+## Features
 
-| | Feature | What it does |
-|---|---|---|
-| 🧭 | **Journey Mode** | Records your drive with foreground GPS (`expo-location`), batches points to the API, and computes live distance, average and max speed. |
-| 🧾 | **Post-trip summary** | On stop, generates a trip summary with the mapped route (SVG polyline) and an itemised cost breakdown — **fuel** (from your main vehicle's consumption × distance), **ERP**, and **parking**. |
-| 🌤️ | **Live Info dashboard** | Singapore data in one place: 2-hour weather (data.gov.sg), petrol prices, and live traffic / ERP / carpark availability (LTA DataMall). Pull-to-refresh, cached. |
-| 🤖 | **AI Assistant** | A voice + text assistant for Singapore driving questions: **Amazon Bedrock** (Claude) for answers, **Polly** for spoken replies, **Transcribe** for voice input. |
-| 🔔 | **Notifications & push** | In-app notification center + Expo push. Four types (pre-drive, real-time, post-trip, system) and five alert channels (speed, hazard, ERP, traffic, weather), each individually toggleable. |
-| 💡 | **Recommendations** | Behaviour insights (totals, average cost, weekly trend, peak hour, busiest day, frequent destinations) and grounded tips, refreshed by a daily background job. |
-| 🚗 | **Vehicles & profile** | Manage multiple vehicles (Petrol / Hybrid / Electric, consumption, main vehicle) and your profile. |
-| 🔐 | **Auth** | App-issued JWT (email + password) with access + refresh tokens, stored in `expo-secure-store`. |
+| Feature | What it does |
+|---|---|
+| **Journey Mode** | Records your drive with foreground GPS (`expo-location`), batches points to the API, and computes live distance, average and max speed. |
+| **Post-trip summary** | On stop, generates a trip summary with the mapped route (SVG polyline) and an itemised cost breakdown: fuel (from your main vehicle's consumption over the distance), ERP, and parking. |
+| **Live Info dashboard** | Singapore data in one place: 2-hour weather (data.gov.sg), petrol prices, and live traffic, ERP and carpark availability (LTA DataMall). Pull to refresh, cached. |
+| **AI Assistant** | A voice and text assistant for Singapore driving questions: Amazon Bedrock (Claude) for answers, Polly for spoken replies, Transcribe for voice input. |
+| **Notifications and push** | In-app notification center plus Expo push. Four types (pre-drive, real-time, post-trip, system) and five alert channels (speed, hazard, ERP, traffic, weather), each individually toggleable. |
+| **Recommendations** | Behaviour insights (totals, average cost, weekly trend, peak hour, busiest day, frequent destinations) and grounded tips, refreshed by a daily background job. |
+| **Vehicles and profile** | Manage multiple vehicles (Petrol / Hybrid / Electric, consumption, main vehicle) and your profile. |
+| **Auth** | App-issued JWT (email and password) with access and refresh tokens, stored in `expo-secure-store`. |
 
 ---
 
-## 🏗️ Architecture
+## Architecture
 
-```mermaid
-flowchart TD
-  App["📱 Expo App<br/>(React Native, Expo Router)"] -->|HTTPS + JWT| GW["API Gateway<br/>HTTP API"]
-  GW --> HTTP["Lambda: HTTP<br/>(NestJS, 7 modules)"]
-  HTTP --> Neon[("Neon Postgres<br/>ap-southeast-1<br/>via Prisma")]
-  HTTP -->|enqueue push| Q["SQS Queue<br/>+ DLQ"]
-  EB["EventBridge<br/>daily 02:00 SGT"] -->|analyze-all| Q
-  Q --> WK["Lambda: Worker"]
-  WK --> Neon
-  WK -->|push| Expo["Expo Push Service"]
-  HTTP -->|LLM / TTS / STT| AI["Bedrock · Polly · Transcribe"]
-  HTTP -->|audio scratch| S3["S3 (1-day TTL)"]
-  HTTP -->|SG open data| EXT["data.gov.sg · LTA DataMall"]
+The Expo app talks to one API Gateway HTTP endpoint, fronting a single NestJS HTTP Lambda. A second worker Lambda drains an SQS queue for push fan-out and the nightly analytics job. Data lives in Neon Postgres (Singapore) via Prisma.
+
+```text
+ Expo app  (React Native, Expo Router)
+     |  HTTPS + JWT
+ API Gateway  (HTTP API)
+     |
+ Lambda: HTTP  (NestJS, 7 modules) ......... Neon Postgres (ap-southeast-1, via Prisma)
+     |   |   |                               (also reached by the worker)
+     |   |   |__ Bedrock / Polly / Transcribe   (AI: LLM, TTS, STT)
+     |   |______ S3  (audio scratch, 1-day TTL)
+     |__________ data.gov.sg / LTA DataMall      (Singapore open data)
+     |
+     |  enqueue push
+ SQS queue (+ DLQ)  ........  fed by EventBridge  (daily 02:00 SGT, analyze-all)
+     |
+ Lambda: Worker  ......... Neon Postgres
+     |
+ Expo Push Service
 ```
 
-**One NestJS API, seven feature modules** (`auth`, `users`, `vehicles`, `external`, `drive-monitor` + `trips`, `notifications`, `ai`, `route-analysis`) deployed as a single HTTP Lambda — right-sized and cheap, scale-to-zero. A second worker Lambda drains the SQS queue for push fan-out and the nightly analytics job.
+**One NestJS API, seven feature modules** (`auth`, `users`, `vehicles`, `external`, `drive-monitor` plus `trips`, `notifications`, `ai`, `route-analysis`) deployed as a single HTTP Lambda: right-sized and cheap, scale-to-zero.
 
 ### Tech stack
 
 | Layer | Choice |
 |---|---|
 | Mobile | Expo / React Native, Expo Router, expo-location / -notifications / -av / -secure-store, react-native-svg |
-| API | NestJS 10, class-validator, `@nestjs/jwt` + passport-jwt, bcryptjs |
+| API | NestJS 10, class-validator, `@nestjs/jwt` plus passport-jwt, bcryptjs |
 | Data | Neon serverless Postgres (Singapore) via Prisma 6 |
 | Compute | AWS Lambda (ARM64, Node 20) behind API Gateway HTTP API |
-| Async | SQS (+ DLQ) worker · EventBridge Scheduler (daily cron) |
-| AI | Amazon Bedrock (Claude) · Polly (TTS) · Transcribe (STT) · S3 |
-| IaC | AWS CDK (TypeScript) — the `NestjsApi` construct |
-| CI/CD | GitHub Actions (OIDC, no stored keys): CI, Deploy API (CDK + smoke test), Security, Mobile build (EAS) |
+| Async | SQS (plus DLQ) worker, EventBridge Scheduler (daily cron) |
+| AI | Amazon Bedrock (Claude), Polly (TTS), Transcribe (STT), S3 |
+| IaC | AWS CDK (TypeScript), the `NestjsApi` construct |
+| CI/CD | GitHub Actions (OIDC, no stored keys): CI, Deploy API (CDK plus smoke test), Security, Mobile build (EAS) |
 
 ---
 
-## 📂 Monorepo layout
+## Monorepo layout
 
 ```
 drivebuddy/
-├── apps/drivebuddy/        # Expo app (screens, lib/api.ts, auth, push)
-├── services/api/           # ONE NestJS API
-│   ├── src/<module>/       # auth · users · vehicles · external · drive-monitor
-│   │                       #   · trips · notifications · ai · route-analysis · health
-│   ├── src/worker.ts       # SQS worker: push fan-out + daily analyze-all
-│   └── prisma/schema.prisma
-├── infra/cdk/drivebuddy/   # CDK app: NestjsApi construct, S3, IAM, EventBridge cron
-├── infra/cdk/_setup/       # GitHub OIDC deploy role
-└── docs/                   # SETUP, DEPLOY, MOBILE, TESTING, screenshots
+  apps/drivebuddy/        Expo app (screens, lib/api.ts, auth, push)
+  services/api/           ONE NestJS API
+    src/<module>/         auth, users, vehicles, external, drive-monitor,
+                          trips, notifications, ai, route-analysis, health
+    src/worker.ts         SQS worker: push fan-out + daily analyze-all
+    prisma/schema.prisma
+  infra/cdk/drivebuddy/   CDK app: NestjsApi construct, S3, IAM, EventBridge cron
+  infra/cdk/_setup/       GitHub OIDC deploy role
+  docs/                   SETUP, DEPLOY, MOBILE, TESTING, screenshots
 ```
 
 ---
 
-## 🚀 Getting started
+## Getting started
 
 **Prerequisites:** Node 20+, an [Expo](https://expo.dev) account (for device runs), and a [Neon](https://neon.tech) Postgres connection string.
 
@@ -126,20 +132,20 @@ npm ci
 
 # 2. backend (local)
 cd services/api
-cp .env.example .env            # set DATABASE_URL (Neon) + JWT_SECRET
+cp .env.example .env            # set DATABASE_URL (Neon) and JWT_SECRET
 npx prisma migrate deploy       # apply migrations
 npm run start:dev               # NestJS on http://localhost:3000
 
 # 3. app
 cd ../../apps/drivebuddy
-npx expo start                  # press 'i' / 'a', or scan with Expo Go
+npx expo start                  # press 'i' or 'a', or scan with Expo Go
 ```
 
-The app reads its API base URL from `EXPO_PUBLIC_API_URL` (falls back to `app.json` → `extra.apiUrl`).
+The app reads its API base URL from `EXPO_PUBLIC_API_URL` (falling back to `app.json`, key `extra.apiUrl`).
 
 ### Deploy the API
 
-Push to `main` and the **Deploy API** workflow runs migrations, builds, `cdk deploy`s, and smoke-tests the live URL — or run it locally:
+Push to `main` and the **Deploy API** workflow runs migrations, builds, runs `cdk deploy`, and smoke-tests the live URL. Or run it locally:
 
 ```bash
 cd infra/cdk/drivebuddy
@@ -148,21 +154,21 @@ DATABASE_URL=... JWT_SECRET=... npx cdk deploy
 
 ---
 
-## 💸 Cost
+## Cost
 
-Scale-to-zero everywhere: AWS Lambda + API Gateway + a tiny S3 bucket + a free Neon tier ≈ **$0–2 / month** with light use. No Fargate, no NAT gateway, no load balancer, no idle database.
-
----
-
-## ✅ Status & roadmap
-
-All planned phases (A–H) are built and verified live. A few items depend on external accounts / quotas:
-
-- [ ] **Bedrock quota** — AI answers need a model-invocation quota increase (AWS Service Quotas → Bedrock, `ap-southeast-1`).
-- [ ] **LTA DataMall key** — set the `LTA_ACCOUNT_KEY` secret to light up live traffic / ERP / carpark (env already wired).
-- [ ] **EAS / store builds** — `eas init` + `EXPO_TOKEN` secret to produce installable builds and enable on-device push.
-- [ ] **Native enhancements** — `react-native-maps` live map, background-GPS service, and on-device wake-word (require a dev build).
+Scale-to-zero everywhere: AWS Lambda plus API Gateway plus a tiny S3 bucket plus a free Neon tier, roughly **$0 to $2 per month** with light use. No Fargate, no NAT gateway, no load balancer, no idle database.
 
 ---
 
-<div align="center"><sub>Drive smart. Drive safe. 🇸🇬</sub></div>
+## Status and roadmap
+
+All planned phases (A to H) are built and verified live. A few items depend on external accounts or quotas:
+
+- [ ] **Bedrock quota**: AI answers need a model-invocation quota increase (AWS Service Quotas, Bedrock, `ap-southeast-1`).
+- [ ] **LTA DataMall key**: set the `LTA_ACCOUNT_KEY` secret to enable live traffic, ERP and carpark (env already wired).
+- [ ] **EAS / store builds**: run `eas init` and set the `EXPO_TOKEN` secret to produce installable builds and enable on-device push.
+- [ ] **Native enhancements**: `react-native-maps` live map, background-GPS service, and on-device wake-word (require a dev build).
+
+---
+
+<div align="center"><sub>Drive smart. Drive safe.</sub></div>

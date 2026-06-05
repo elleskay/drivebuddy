@@ -1,5 +1,5 @@
 // Applies pending Prisma migrations before deploy (run by deploy-api.yml).
-// Neon: schema migrations must use a DIRECT (non-pooled) connection — the
+// Neon: schema migrations must use a DIRECT (non-pooled) connection - the
 // pgbouncer pooler doesn't support the session-level locks Prisma Migrate needs.
 // We derive the direct endpoint from the pooled DATABASE_URL by dropping "-pooler".
 import { execSync } from "node:child_process";

@@ -1,7 +1,7 @@
 import * as SecureStore from "expo-secure-store";
 
 // JWTs from the NestJS API live in the device keychain/keystore via
-// expo-secure-store — never AsyncStorage, never the JS bundle.
+// expo-secure-store, never AsyncStorage, never the JS bundle.
 const ACCESS_TOKEN_KEY = "access_token";
 const REFRESH_TOKEN_KEY = "refresh_token";
 

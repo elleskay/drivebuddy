@@ -8,13 +8,13 @@ import { AskDto, VoiceDto } from "./dto";
 export class AiController {
   constructor(private readonly ai: AiService) {}
 
-  /** Text question → LLM answer (+ optional spoken audio). */
+  /** Text question to LLM answer (+ optional spoken audio). */
   @Post("ask")
   ask(@Body() dto: AskDto) {
     return this.ai.ask(dto.text, dto.speak ?? false);
   }
 
-  /** Recorded audio → transcript → LLM answer → spoken audio. */
+  /** Recorded audio to transcript to LLM answer to spoken audio. */
   @Post("voice")
   voice(@Body() dto: VoiceDto) {
     return this.ai.voice(dto.audioBase64, dto.format ?? "m4a", dto.speak ?? true);

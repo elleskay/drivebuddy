@@ -148,7 +148,7 @@ export class NestjsApi extends Construct {
 
     // Prisma: the generated client + query-engine binary must live in the bundle.
     // The prod install above strips scripts, so the postinstall `prisma generate`
-    // never ran — generate it explicitly here. The engine for the Lambda arch
+    // never ran - generate it explicitly here. The engine for the Lambda arch
     // (arm64) comes from the binaryTargets in prisma/schema.prisma.
     const prismaDir = path.join(props.servicePath, "prisma");
     if (fs.existsSync(path.join(prismaDir, "schema.prisma"))) {
@@ -164,7 +164,7 @@ export class NestjsApi extends Construct {
 
       // Slim the bundle to stay under Lambda's 250 MB unzipped limit: the prisma
       // CLI + @prisma/engines are only needed during generate, and only the
-      // linux-arm64 query engine is needed at runtime — drop everything else.
+      // linux-arm64 query engine is needed at runtime - drop everything else.
       for (const rel of ["node_modules/prisma", "node_modules/@prisma/engines"]) {
         fs.rmSync(path.join(stage, rel), { recursive: true, force: true });
       }
@@ -181,7 +181,7 @@ export class NestjsApi extends Construct {
 
     // Slim the bundle: the AWS SDK v3 and its @smithy core each ship BOTH a CJS
     // and an ESM build. `nest build` emits CommonJS, so node loads dist-cjs and
-    // the dist-es copies are dead weight — dropping them (and TypeScript defs)
+    // the dist-es copies are dead weight - dropping them (and TypeScript defs)
     // reclaims ~30-40 MB and keeps us comfortably under Lambda's 250 MB unzipped
     // limit as more @aws-sdk clients are added (bedrock/polly/transcribe/s3/sqs).
     for (const scope of ["@aws-sdk", "@smithy"]) {

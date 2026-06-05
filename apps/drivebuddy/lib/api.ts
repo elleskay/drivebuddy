@@ -1,7 +1,7 @@
 import Constants from "expo-constants";
 import { getAccessToken, getRefreshToken, setTokens } from "./auth";
 
-// EXPO_PUBLIC_* is inlined at build time and is public — the API base URL is safe
+// EXPO_PUBLIC_* is inlined at build time and is public: the API base URL is safe
 // to ship (API keys are not). Falls back to app.json extra, then localhost.
 const API_URL =
   process.env.EXPO_PUBLIC_API_URL ??

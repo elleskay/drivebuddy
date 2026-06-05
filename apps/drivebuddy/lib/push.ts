@@ -67,7 +67,7 @@ export async function unregisterPush(): Promise<void> {
   try {
     await api.unregisterDevice(lastToken);
   } catch {
-    // ignore — token is purged server-side on send failure anyway
+    // ignore: token is purged server-side on send failure anyway
   }
   lastToken = null;
 }
