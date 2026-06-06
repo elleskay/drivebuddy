@@ -183,7 +183,7 @@ export class NestjsApi extends Construct {
     // and an ESM build. `nest build` emits CommonJS, so node loads dist-cjs and
     // the dist-es copies are dead weight - dropping them (and TypeScript defs)
     // reclaims ~30-40 MB and keeps us comfortably under Lambda's 250 MB unzipped
-    // limit as more @aws-sdk clients are added (bedrock/polly/transcribe/s3/sqs).
+    // limit as more @aws-sdk clients are added (polly/transcribe/s3/sqs).
     for (const scope of ["@aws-sdk", "@smithy"]) {
       const scopeDir = path.join(stage, "node_modules", scope);
       if (!fs.existsSync(scopeDir)) continue;

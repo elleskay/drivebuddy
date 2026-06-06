@@ -10,7 +10,7 @@ Live drive tracking, post-trip cost breakdowns, real-time ERP / traffic / weathe
 [![Deploy API](https://github.com/elleskay/drivebuddy/actions/workflows/deploy-api.yml/badge.svg)](https://github.com/elleskay/drivebuddy/actions/workflows/deploy-api.yml)
 [![Security](https://github.com/elleskay/drivebuddy/actions/workflows/security.yml/badge.svg)](https://github.com/elleskay/drivebuddy/actions/workflows/security.yml)
 
-Expo (React Native), NestJS, Prisma, Neon Postgres, AWS Lambda + API Gateway + SQS + EventBridge, Bedrock / Polly / Transcribe. Roughly **$0 to $2 per month**.
+Expo (React Native), NestJS, Prisma, Neon Postgres, AWS Lambda + API Gateway + SQS + EventBridge, the Anthropic Claude API plus Polly / Transcribe. Roughly **$0 to $2 per month**.
 
 </div>
 
@@ -57,7 +57,7 @@ Expo (React Native), NestJS, Prisma, Neon Postgres, AWS Lambda + API Gateway + S
 | **Journey Mode** | Records your drive with foreground GPS (`expo-location`), batches points to the API, and computes live distance, average and max speed. |
 | **Post-trip summary** | On stop, generates a trip summary with the driven route drawn on an OpenStreetMap map (keyless raster tiles, no Google dependency) and an itemised cost breakdown: fuel (from your main vehicle's consumption over the distance), ERP, and parking. |
 | **Live Info dashboard** | Singapore data in one place: 2-hour weather (data.gov.sg), petrol prices, and live traffic, ERP and carpark availability (LTA DataMall). Pull to refresh, cached. |
-| **AI Assistant** | A voice and text assistant for Singapore driving questions: Amazon Bedrock (Claude) for answers, Polly for spoken replies, Transcribe for voice input. |
+| **AI Assistant** | A voice and text assistant for Singapore driving questions: the Anthropic Claude API for answers, Polly for spoken replies, Transcribe for voice input. |
 | **Notifications and push** | In-app notification center plus Expo push. Four types (pre-drive, real-time, post-trip, system) and five alert channels (speed, hazard, ERP, traffic, weather), each individually toggleable. |
 | **Recommendations** | Behaviour insights (totals, average cost, weekly trend, peak hour, busiest day, frequent destinations) and grounded tips, refreshed by a daily background job. |
 | **Vehicles and profile** | Manage multiple vehicles (Petrol / Hybrid / Electric, consumption, main vehicle) and your profile. |
@@ -76,8 +76,9 @@ The Expo app talks to one API Gateway HTTP endpoint, fronting a single NestJS HT
      |
  Lambda: HTTP  (NestJS, 7 modules) ......... Neon Postgres (ap-southeast-1, via Prisma)
      |   |   |                               (also reached by the worker)
-     |   |   |__ Bedrock / Polly / Transcribe   (AI: LLM, TTS, STT)
+     |   |   |__ Polly / Transcribe              (AI: TTS, STT)
      |   |______ S3  (audio scratch, 1-day TTL)
+     |   |______ Anthropic Claude API            (AI: LLM, external HTTPS)
      |__________ data.gov.sg / LTA DataMall      (Singapore open data)
      |
      |  enqueue push
@@ -99,7 +100,7 @@ The Expo app talks to one API Gateway HTTP endpoint, fronting a single NestJS HT
 | Data | Neon serverless Postgres (Singapore) via Prisma 6 |
 | Compute | AWS Lambda (ARM64, Node 20) behind API Gateway HTTP API |
 | Async | SQS (plus DLQ) worker, EventBridge Scheduler (daily cron) |
-| AI | Amazon Bedrock (Claude), Polly (TTS), Transcribe (STT), S3 |
+| AI | Anthropic Claude API (LLM), Polly (TTS), Transcribe (STT), S3 |
 | IaC | AWS CDK (TypeScript), the `NestjsApi` construct |
 | CI/CD | GitHub Actions (OIDC, no stored keys): CI, Deploy API (CDK plus smoke test), Security, Mobile build (EAS) |
 
@@ -162,9 +163,8 @@ Scale-to-zero everywhere: AWS Lambda plus API Gateway plus a tiny S3 bucket plus
 
 ## Status and roadmap
 
-All planned phases (A to H) are built and verified live. A few items depend on external accounts or quotas:
+All planned phases (A to H) are built and verified live. A few items depend on external accounts or keys:
 
-- [ ] **Bedrock quota**: AI answers need a model-invocation quota increase (AWS Service Quotas, Bedrock, `ap-southeast-1`).
 - [ ] **LTA DataMall key**: set the `LTA_ACCOUNT_KEY` secret to enable live traffic, ERP and carpark (env already wired).
 - [ ] **EAS / store builds**: run `eas init` and set the `EXPO_TOKEN` secret to produce installable builds and enable on-device push.
 - [ ] **Native enhancements**: an interactive pan/zoom map (the trip map currently renders OpenStreetMap raster tiles with the route overlaid), background-GPS service, and on-device wake-word (require a dev build).
