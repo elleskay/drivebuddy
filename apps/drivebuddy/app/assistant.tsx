@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
@@ -31,25 +31,49 @@ export default function AssistantScreen() {
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
   const [recording, setRecording] = useState(false);
+  const [continuous, setContinuous] = useState(false); // hands-free loop
   const rec = useRef<Audio.Recording | null>(null);
   const sound = useRef<Audio.Sound | null>(null);
   const listRef = useRef<FlatList<Msg>>(null);
+  const continuousRef = useRef(false);
+  const listenTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const startRef = useRef<() => void>();
+  const stopRef = useRef<() => void>();
+
+  // Hands-free has no on-device voice-activity detection, so each turn listens
+  // for a fixed window then auto-sends.
+  const LISTEN_MS = 7000;
+
+  useEffect(() => {
+    continuousRef.current = continuous;
+  }, [continuous]);
 
   const append = useCallback((m: Msg) => {
     setMessages((prev) => [...prev, m]);
     setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 50);
   }, []);
 
-  const playAudio = useCallback(async (base64: string) => {
+  const playAudio = useCallback(async (base64: string, onDone?: () => void) => {
     try {
       const uri = `${FileSystem.cacheDirectory}reply-${Date.now()}.mp3`;
       await FileSystem.writeAsStringAsync(uri, base64, { encoding: FileSystem.EncodingType.Base64 });
       await sound.current?.unloadAsync();
-      const { sound: s } = await Audio.Sound.createAsync({ uri }, { shouldPlay: true });
+      const { sound: s } = await Audio.Sound.createAsync({ uri }, { shouldPlay: true }, (status) => {
+        if (status.isLoaded && status.didJustFinish) onDone?.();
+      });
       sound.current = s;
     } catch {
       // playback is optional; the text answer already shows
+      onDone?.();
     }
+  }, []);
+
+  // In hands-free mode, re-arm listening after a reply finishes.
+  const maybeContinue = useCallback(() => {
+    if (!continuousRef.current || rec.current) return;
+    setTimeout(() => {
+      if (continuousRef.current && !rec.current) startRef.current?.();
+    }, 500);
   }, []);
 
   const send = useCallback(
@@ -86,6 +110,11 @@ export default function AssistantScreen() {
       );
       rec.current = recording;
       setRecording(true);
+      // Hands-free: auto-stop after a fixed listen window.
+      if (continuousRef.current) {
+        if (listenTimer.current) clearTimeout(listenTimer.current);
+        listenTimer.current = setTimeout(() => stopRef.current?.(), LISTEN_MS);
+      }
     } catch {
       append({ id: nextId(), role: "assistant", text: "Couldn't start recording." });
     }
@@ -94,6 +123,10 @@ export default function AssistantScreen() {
   const stopRecording = useCallback(async () => {
     const r = rec.current;
     if (!r) return;
+    if (listenTimer.current) {
+      clearTimeout(listenTimer.current);
+      listenTimer.current = null;
+    }
     setRecording(false);
     setBusy(true);
     try {
@@ -108,14 +141,42 @@ export default function AssistantScreen() {
         prev.map((m) => (m.text === "(voice message)" && m.role === "user" ? { ...m, text: res.transcript || "(voice message)" } : m)),
       );
       append({ id: nextId(), role: "assistant", text: res.answer });
-      if (res.audio) void playAudio(res.audio.base64);
+      if (res.audio) void playAudio(res.audio.base64, maybeContinue);
+      else maybeContinue();
     } catch (e) {
       const msg = e instanceof ApiError ? e.message : "Couldn't process the recording.";
       append({ id: nextId(), role: "assistant", text: msg });
+      maybeContinue();
     } finally {
       setBusy(false);
     }
-  }, [append, playAudio]);
+  }, [append, playAudio, maybeContinue]);
+
+  // Keep refs to the latest start/stop so the hands-free loop can call across them.
+  useEffect(() => {
+    startRef.current = startRecording;
+    stopRef.current = stopRecording;
+  }, [startRecording, stopRecording]);
+
+  useEffect(() => {
+    return () => {
+      if (listenTimer.current) clearTimeout(listenTimer.current);
+    };
+  }, []);
+
+  const toggleContinuous = useCallback(() => {
+    setContinuous((on) => {
+      const next = !on;
+      continuousRef.current = next;
+      if (next) {
+        if (!rec.current && !busy) void startRecording();
+      } else {
+        if (listenTimer.current) clearTimeout(listenTimer.current);
+        if (rec.current) void stopRecording();
+      }
+      return next;
+    });
+  }, [busy, startRecording, stopRecording]);
 
   return (
     <SafeAreaView style={styles.container} edges={["bottom"]}>
@@ -141,6 +202,14 @@ export default function AssistantScreen() {
             <Text style={styles.thinkingText}>Thinking…</Text>
           </View>
         ) : null}
+        <Pressable
+          style={[styles.handsFree, continuous && styles.handsFreeOn]}
+          onPress={toggleContinuous}
+        >
+          <Text style={[styles.handsFreeText, continuous && styles.handsFreeTextOn]}>
+            {continuous ? "Hands-free on — listening, tap to stop" : "Start hands-free mode"}
+          </Text>
+        </Pressable>
         <View style={styles.inputBar}>
           <Pressable
             style={[styles.mic, recording && styles.micActive]}
@@ -178,6 +247,19 @@ const styles = StyleSheet.create({
   assistantText: { color: "#e7eefc", fontSize: 15 },
   thinking: { flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: 18, paddingBottom: 6 },
   thinkingText: { color: "#9fb0d0", fontSize: 13 },
+  handsFree: {
+    alignSelf: "center",
+    marginBottom: 6,
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: "#243049",
+    backgroundColor: "#131c2e",
+  },
+  handsFreeOn: { backgroundColor: "#16223a", borderColor: "#4f8cff" },
+  handsFreeText: { color: "#9fb0d0", fontSize: 12, fontWeight: "700" },
+  handsFreeTextOn: { color: "#4f8cff" },
   inputBar: {
     flexDirection: "row",
     alignItems: "center",
