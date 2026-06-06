@@ -74,5 +74,18 @@ export class ApiStack extends cdk.Stack {
         }),
       ],
     });
+
+    // Pre-drive intelligence: hourly sweep. The worker sends each user a heads-up
+    // ~1h before their usual departure time (weather, traffic, ERP-peak warning),
+    // capped at one per user per day. Runs every hour so it can line up with any
+    // user's learned departure hour.
+    new events.Rule(this, "PreDriveSweep", {
+      schedule: events.Schedule.rate(cdk.Duration.hours(1)),
+      targets: [
+        new targets.SqsQueue(api.queue, {
+          message: events.RuleTargetInput.fromObject({ kind: "pre-drive-sweep" }),
+        }),
+      ],
+    });
   }
 }

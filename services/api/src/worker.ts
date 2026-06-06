@@ -8,7 +8,7 @@
 // tokens Expo reports as no longer registered.
 import type { SQSEvent, SQSBatchResponse, SQSRecord } from "aws-lambda";
 import { PrismaClient } from "@prisma/client";
-import { generateForUser } from "./route-analysis/analysis";
+import { generateForUser, computeInsights } from "./route-analysis/analysis";
 
 // Reused across warm invocations (one client/connection per container).
 const prisma = new PrismaClient();
@@ -119,12 +119,138 @@ async function handleAnalyzeAll(): Promise<void> {
   console.log(`analyze-all: processed ${users.length} user(s), notified ${notified}`);
 }
 
+// ---- Pre-drive intelligence ------------------------------------------------
+
+const DATA_GOV = "https://api.data.gov.sg/v1/environment";
+const LTA_BASE = "https://datamall2.mytransport.sg/ltaodataservice";
+
+function sgtParts(now: Date): { day: number; hour: number } {
+  const sgt = new Date(now.getTime() + 8 * 3_600_000);
+  return { day: sgt.getUTCDay(), hour: sgt.getUTCHours() };
+}
+function startOfSgtDayUtc(now: Date): Date {
+  const sgt = new Date(now.getTime() + 8 * 3_600_000);
+  const midnightSgtAsUtc = Date.UTC(sgt.getUTCFullYear(), sgt.getUTCMonth(), sgt.getUTCDate());
+  return new Date(midnightSgtAsUtc - 8 * 3_600_000);
+}
+function fmtHour(h: number): string {
+  const am = h < 12;
+  const hr = h % 12 === 0 ? 12 : h % 12;
+  return `${hr}${am ? "am" : "pm"}`;
+}
+
+async function liveWeatherSummary(): Promise<string | null> {
+  try {
+    const res = await fetch(`${DATA_GOV}/2-hour-weather-forecast`);
+    const body = (await res.json()) as { items?: { forecasts?: { area: string; forecast: string }[] }[] };
+    const forecasts = body.items?.[0]?.forecasts ?? [];
+    if (!forecasts.length) return null;
+    const counts = new Map<string, number>();
+    for (const f of forecasts) counts.set(f.forecast, (counts.get(f.forecast) ?? 0) + 1);
+    return [...counts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? null;
+  } catch {
+    return null;
+  }
+}
+async function liveTrafficCount(): Promise<number | null> {
+  const key = process.env.LTA_ACCOUNT_KEY;
+  if (!key) return null;
+  try {
+    const res = await fetch(`${LTA_BASE}/TrafficIncidents`, {
+      headers: { AccountKey: key, accept: "application/json" },
+    });
+    if (!res.ok) return null;
+    const body = (await res.json()) as { value?: unknown[] };
+    return body.value?.length ?? 0;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Pre-drive sweep (fired hourly by EventBridge). For each user who has a device,
+ * opted into pre-drive alerts, and enough trip history to show a pattern, send a
+ * heads-up roughly an hour before their usual departure time with the current
+ * weather, traffic, and an ERP-peak warning. One alert per user per day.
+ */
+async function handlePreDriveSweep(): Promise<void> {
+  const now = new Date();
+  const { day, hour } = sgtParts(now);
+  if (day === 0 || day === 6) {
+    console.log("pre-drive: weekend in SGT, skipping");
+    return;
+  }
+
+  const users = await prisma.user.findMany({
+    where: { devices: { some: {} }, trips: { some: {} } },
+    select: { id: true },
+  });
+  if (!users.length) return;
+
+  const weather = await liveWeatherSummary();
+  const traffic = await liveTrafficCount();
+  const dayStart = startOfSgtDayUtc(now);
+  let sent = 0;
+
+  for (const { id: userId } of users) {
+    try {
+      const settings = await prisma.notificationSettings.findUnique({ where: { userId } });
+      if (settings && !settings.preDrive) continue; // user muted pre-drive alerts
+
+      const trips = await prisma.tripSummary.findMany({ where: { userId } });
+      if (trips.length < 3) continue; // not enough history for a reliable pattern
+      const { peakHour } = computeInsights(trips);
+      if (peakHour == null) continue;
+
+      // Fire roughly an hour before the usual departure hour.
+      if (peakHour !== (hour + 1) % 24) continue;
+
+      // At most one pre-drive alert per user per SGT day.
+      const already = await prisma.notification.count({
+        where: { userId, type: "PRE_DRIVE", createdAt: { gte: dayStart } },
+      });
+      if (already > 0) continue;
+
+      const bits: string[] = [];
+      if (weather) bits.push(`weather looks ${weather.toLowerCase()}`);
+      if (traffic != null) {
+        bits.push(traffic > 0 ? `${traffic} traffic incident${traffic > 1 ? "s" : ""} reported` : "roads are clear");
+      }
+      const erpPeak = (peakHour >= 7 && peakHour < 10) || (peakHour >= 17 && peakHour < 20);
+      if (erpPeak) bits.push("ERP peak pricing will be active, so leaving a little earlier or later can save on charges");
+      const body = `You usually set off around ${fmtHour(peakHour)}.${bits.length ? " " + capitalise(bits.join("; ")) + "." : ""}`;
+
+      const notification = await prisma.notification.create({
+        data: { userId, type: "PRE_DRIVE", title: "Heads up before your drive", body, data: { kind: "pre-drive" } },
+      });
+      await handlePush({
+        kind: "push",
+        userId,
+        notificationId: notification.id,
+        title: notification.title,
+        body,
+        data: { kind: "pre-drive" },
+      });
+      sent++;
+    } catch (err) {
+      console.error(`pre-drive: user ${userId} failed: ${(err as Error).message}`);
+    }
+  }
+  console.log(`pre-drive: SGT ${hour}:00, scanned ${users.length} user(s), sent ${sent}`);
+}
+
+function capitalise(s: string): string {
+  return s.length ? s[0]!.toUpperCase() + s.slice(1) : s;
+}
+
 async function handleRecord(record: SQSRecord): Promise<void> {
   const job = JSON.parse(record.body) as { kind?: string };
   if (job.kind === "push") {
     await handlePush(job as PushJob);
   } else if (job.kind === "analyze-all") {
     await handleAnalyzeAll();
+  } else if (job.kind === "pre-drive-sweep") {
+    await handlePreDriveSweep();
   } else {
     console.log(`worker: unknown job kind "${job.kind}"; ignoring`);
   }

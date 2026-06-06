@@ -5,5 +5,6 @@ import { ExternalController } from "./external.controller";
 @Module({
   controllers: [ExternalController],
   providers: [ExternalService],
+  exports: [ExternalService],
 })
 export class ExternalModule {}

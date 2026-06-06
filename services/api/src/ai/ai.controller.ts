@@ -1,5 +1,7 @@
 import { Body, Controller, Post, UseGuards } from "@nestjs/common";
 import { JwtAuthGuard } from "../auth/jwt-auth.guard";
+import { CurrentUser } from "../auth/current-user.decorator";
+import type { AuthUser } from "../auth/jwt.strategy";
 import { AiService } from "./ai.service";
 import { AskDto, VoiceDto } from "./dto";
 
@@ -10,13 +12,13 @@ export class AiController {
 
   /** Text question to LLM answer (+ optional spoken audio). */
   @Post("ask")
-  ask(@Body() dto: AskDto) {
-    return this.ai.ask(dto.text, dto.speak ?? false);
+  ask(@CurrentUser() user: AuthUser, @Body() dto: AskDto) {
+    return this.ai.ask(user.id, dto.text, dto.speak ?? false);
   }
 
   /** Recorded audio to transcript to LLM answer to spoken audio. */
   @Post("voice")
-  voice(@Body() dto: VoiceDto) {
-    return this.ai.voice(dto.audioBase64, dto.format ?? "m4a", dto.speak ?? true);
+  voice(@CurrentUser() user: AuthUser, @Body() dto: VoiceDto) {
+    return this.ai.voice(user.id, dto.audioBase64, dto.format ?? "m4a", dto.speak ?? true);
   }
 }

@@ -1,12 +1,14 @@
-import { Injectable, NotFoundException } from "@nestjs/common";
+import { Injectable, Logger, NotFoundException } from "@nestjs/common";
 import { Prisma } from "@prisma/client";
 import { PrismaService } from "../prisma/prisma.service";
+import { estimateErpCost } from "../external/erp-gantries";
 
 // Indicative unit prices (SGD). Petrol/Hybrid use $/litre, Electric $/kWh.
 const FUEL_PRICE: Record<string, number> = { Petrol: 2.78, Hybrid: 2.78, Electric: 0.55 };
 
 @Injectable()
 export class TripsService {
+  private readonly logger = new Logger(TripsService.name);
   constructor(private readonly prisma: PrismaService) {}
 
   /** Build (or refresh) the cost summary for a completed route. */
@@ -34,6 +36,18 @@ export class TripsService {
       fuelCost = (route.totalDistance / 100) * consumption * price;
     }
 
+    // ERP cost: detect which gantries the GPS trace passed and price each by the
+    // charge window at the time of passing (0 outside operating hours / weekends).
+    const erp = estimateErpCost(
+      route.points.map((p) => ({ latitude: p.latitude, longitude: p.longitude, timestamp: p.timestamp })),
+    );
+    if (erp.passes.length) {
+      this.logger.log(
+        `Route ${routeId}: passed ${erp.passes.length} ERP gantr${erp.passes.length > 1 ? "ies" : "y"} ` +
+          `($${erp.cost.toFixed(2)}): ${erp.passes.map((p) => `${p.name} $${p.charge.toFixed(2)}`).join(", ")}`,
+      );
+    }
+
     const data = {
       userId,
       routeName: route.name,
@@ -46,7 +60,7 @@ export class TripsService {
       endLat: last?.latitude ?? null,
       endLng: last?.longitude ?? null,
       fuelCost: new Prisma.Decimal(fuelCost.toFixed(2)),
-      erpCost: new Prisma.Decimal(0), // wired to the external ERP module later
+      erpCost: new Prisma.Decimal(erp.cost.toFixed(2)),
       parkingCost: new Prisma.Decimal(0),
     };
 
