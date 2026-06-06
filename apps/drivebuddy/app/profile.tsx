@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { SkeletonList } from "@/components/skeleton";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { api, type Profile } from "@/lib/api";
+import { Button } from "@/components/ui";
 
 export default function ProfileScreen() {
   const [loading, setLoading] = useState(true);
@@ -95,9 +96,7 @@ export default function ProfileScreen() {
 
         {msg ? <Text style={styles.msg}>{msg}</Text> : null}
 
-        <Pressable style={[styles.button, saving && { opacity: 0.6 }]} onPress={onSave} disabled={saving}>
-          {saving ? <ActivityIndicator color="#fff" /> : <Text style={styles.buttonText}>Save changes</Text>}
-        </Pressable>
+        <Button label="Save changes" onPress={onSave} loading={saving} style={{ marginTop: 8 }} />
       </ScrollView>
     </SafeAreaView>
   );
@@ -129,7 +128,5 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
   readonly: { color: "#5b6b86", fontSize: 16, paddingVertical: 12 },
-  button: { backgroundColor: "#2563eb", borderRadius: 12, paddingVertical: 15, alignItems: "center", marginTop: 8 },
-  buttonText: { color: "#fff", fontSize: 16, fontWeight: "700" },
   msg: { color: "#16a34a", textAlign: "center" },
 });

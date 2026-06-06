@@ -1,9 +1,24 @@
 import { useCallback, useState } from "react";
 import { FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import { SkeletonList } from "@/components/skeleton";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useFocusEffect, useRouter } from "expo-router";
-import { api, type AppNotification } from "@/lib/api";
+import { api, type AppNotification, type NotificationType } from "@/lib/api";
+import { accent, radius, shadow } from "@/lib/theme";
+
+const NOTIF_ICON: Record<NotificationType, React.ComponentProps<typeof Ionicons>["name"]> = {
+  PRE_DRIVE: "alarm-outline",
+  REAL_TIME: "warning-outline",
+  POST_TRIP: "receipt-outline",
+  SYSTEM: "information-circle-outline",
+};
+const NOTIF_TINT: Record<NotificationType, string> = {
+  PRE_DRIVE: accent.routine,
+  REAL_TIME: accent.traffic,
+  POST_TRIP: accent.fuel,
+  SYSTEM: accent.carpark,
+};
 
 export default function NotificationsScreen() {
   const router = useRouter();
@@ -83,6 +98,9 @@ export default function NotificationsScreen() {
         ListEmptyComponent={<Text style={styles.empty}>No notifications yet.</Text>}
         renderItem={({ item }) => (
           <Pressable style={[styles.row, !item.read && styles.unread]} onPress={() => onTap(item)}>
+            <View style={[styles.nIcon, { backgroundColor: NOTIF_TINT[item.type] + "1a" }]}>
+              <Ionicons name={NOTIF_ICON[item.type]} size={20} color={NOTIF_TINT[item.type]} />
+            </View>
             <View style={{ flex: 1 }}>
               <Text style={styles.title}>{item.title}</Text>
               <Text style={styles.body}>{item.body}</Text>
@@ -127,9 +145,10 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderRadius: 14,
     padding: 16,
+    ...shadow,
   },
   unread: { borderColor: "#2563eb", backgroundColor: "#e8f0ff" },
-  icon: { fontSize: 22 },
+  nIcon: { width: 40, height: 40, borderRadius: radius.md, alignItems: "center", justifyContent: "center" },
   title: { color: "#0f172a", fontSize: 15, fontWeight: "700" },
   body: { color: "#5b6b86", fontSize: 13, marginTop: 2 },
   time: { color: "#94a3b8", fontSize: 11, marginTop: 4 },

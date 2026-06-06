@@ -10,8 +10,21 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { Ionicons } from "@expo/vector-icons";
 import { api, ApiError, type FuelType, type Vehicle } from "@/lib/api";
 import { SkeletonList } from "@/components/skeleton";
+import { accent, radius, shadow } from "@/lib/theme";
+
+const FUEL_ICON: Record<FuelType, React.ComponentProps<typeof Ionicons>["name"]> = {
+  Petrol: "car-sport-outline",
+  Hybrid: "leaf-outline",
+  Electric: "flash-outline",
+};
+const FUEL_TINT: Record<FuelType, string> = {
+  Petrol: accent.routine,
+  Hybrid: accent.fuel,
+  Electric: accent.weather,
+};
 
 const FUEL_TYPES: FuelType[] = ["Petrol", "Hybrid", "Electric"];
 
@@ -119,6 +132,9 @@ export default function VehiclesScreen() {
         ListEmptyComponent={<Text style={styles.empty}>No vehicles yet. Add your first one below.</Text>}
         renderItem={({ item }) => (
           <View style={styles.vehicle}>
+            <View style={[styles.vIcon, { backgroundColor: FUEL_TINT[item.fuelType] + "1a" }]}>
+              <Ionicons name={FUEL_ICON[item.fuelType]} size={22} color={FUEL_TINT[item.fuelType]} />
+            </View>
             <View style={{ flex: 1 }}>
               <View style={styles.row}>
                 <Text style={styles.plate}>{item.vehicleNumber}</Text>
@@ -205,7 +221,9 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     padding: 16,
     gap: 10,
+    ...shadow,
   },
+  vIcon: { width: 44, height: 44, borderRadius: radius.md, alignItems: "center", justifyContent: "center" },
   row: { flexDirection: "row", alignItems: "center", gap: 8 },
   plate: { color: "#0f172a", fontSize: 18, fontWeight: "800", letterSpacing: 1 },
   mainBadge: {
