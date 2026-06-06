@@ -3,7 +3,23 @@ import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-nati
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import * as Location from "expo-location";
-import { api, type GpsSample } from "@/lib/api";
+import * as Speech from "expo-speech";
+import { api, type ErpGantry, type GpsSample, type TrafficItem } from "@/lib/api";
+
+// In-drive alert tuning.
+const GANTRY_RADIUS_KM = 0.35; // announce an ERP gantry within ~350m
+const INCIDENT_RADIUS_KM = 1.0; // announce a traffic incident within ~1km
+const ALERT_CLEAR_MS = 9000;
+
+function km(aLat: number, aLng: number, bLat: number, bLng: number): number {
+  const R = 6371;
+  const dLat = ((bLat - aLat) * Math.PI) / 180;
+  const dLng = ((bLng - aLng) * Math.PI) / 180;
+  const s =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos((aLat * Math.PI) / 180) * Math.cos((bLat * Math.PI) / 180) * Math.sin(dLng / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(s));
+}
 
 export default function JourneyScreen() {
   const router = useRouter();
@@ -13,12 +29,57 @@ export default function JourneyScreen() {
   const [error, setError] = useState<string | null>(null);
   const [distance, setDistance] = useState(0);
   const [elapsed, setElapsed] = useState(0);
+  const [alert, setAlert] = useState<string | null>(null);
+  const [muted, setMuted] = useState(false);
 
   const routeId = useRef<string | null>(null);
   const buffer = useRef<GpsSample[]>([]);
   const sub = useRef<Location.LocationSubscription | null>(null);
   const timer = useRef<ReturnType<typeof setInterval> | null>(null);
   const startedAt = useRef<number>(0);
+
+  // In-drive alert state.
+  const gantries = useRef<ErpGantry[]>([]);
+  const incidents = useRef<TrafficItem[]>([]);
+  const announced = useRef<Set<string>>(new Set());
+  const mutedRef = useRef(false);
+  const alertTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    mutedRef.current = muted;
+    if (muted) Speech.stop();
+  }, [muted]);
+
+  const announce = useCallback((key: string, text: string) => {
+    if (announced.current.has(key)) return; // one alert per gantry/incident per drive
+    announced.current.add(key);
+    setAlert(text);
+    if (!mutedRef.current) {
+      try {
+        Speech.speak(text, { rate: 1.0, pitch: 1.0 });
+      } catch {
+        // voice is a layer on top of the banner; never let TTS break the drive
+      }
+    }
+    if (alertTimer.current) clearTimeout(alertTimer.current);
+    alertTimer.current = setTimeout(() => setAlert(null), ALERT_CLEAR_MS);
+  }, []);
+
+  const checkProximity = useCallback(
+    (lat: number, lng: number) => {
+      for (const g of gantries.current) {
+        if (km(lat, lng, g.lat, g.lng) <= GANTRY_RADIUS_KM) {
+          announce(`g:${g.id}`, `ERP gantry ahead: ${g.name}. Have your payment ready.`);
+        }
+      }
+      incidents.current.forEach((t, i) => {
+        if (km(lat, lng, t.latitude, t.longitude) <= INCIDENT_RADIUS_KM) {
+          announce(`t:${i}`, `Traffic alert ahead: ${t.message}`);
+        }
+      });
+    },
+    [announce],
+  );
 
   const flush = useCallback(async () => {
     if (!routeId.current || buffer.current.length === 0) return;
@@ -43,10 +104,22 @@ export default function JourneyScreen() {
       const route = await api.startRoute();
       routeId.current = route.id;
       buffer.current = [];
+      announced.current = new Set();
+      setAlert(null);
       setDistance(0);
       setElapsed(0);
       startedAt.current = Date.now();
       setTracking(true);
+
+      // Load in-drive context (ERP gantry map + current incidents). Best-effort.
+      api
+        .erpGantries()
+        .then((g) => (gantries.current = g))
+        .catch(() => (gantries.current = []));
+      api
+        .traffic()
+        .then((tf) => (incidents.current = tf.data ?? []))
+        .catch(() => (incidents.current = []));
 
       sub.current = await Location.watchPositionAsync(
         { accuracy: Location.Accuracy.High, distanceInterval: 10, timeInterval: 3000 },
@@ -59,6 +132,7 @@ export default function JourneyScreen() {
             speed: loc.coords.speed ?? undefined,
             accuracy: loc.coords.accuracy ?? undefined,
           });
+          checkProximity(loc.coords.latitude, loc.coords.longitude);
           if (buffer.current.length >= 5) void flush();
         },
       );
@@ -71,13 +145,15 @@ export default function JourneyScreen() {
     } finally {
       setStarting(false);
     }
-  }, [flush]);
+  }, [flush, checkProximity]);
 
   const stop = useCallback(async () => {
     setStopping(true);
+    Speech.stop();
     sub.current?.remove();
     sub.current = null;
     if (timer.current) clearInterval(timer.current);
+    if (alertTimer.current) clearTimeout(alertTimer.current);
     await flush();
     const id = routeId.current;
     try {
@@ -93,6 +169,8 @@ export default function JourneyScreen() {
     return () => {
       sub.current?.remove();
       if (timer.current) clearInterval(timer.current);
+      if (alertTimer.current) clearTimeout(alertTimer.current);
+      Speech.stop();
     };
   }, []);
 
@@ -103,6 +181,12 @@ export default function JourneyScreen() {
     <SafeAreaView style={styles.container} edges={["bottom"]}>
       <View style={styles.inner}>
         {error ? <Text style={styles.error}>{error}</Text> : null}
+
+        {alert ? (
+          <View style={styles.alertBanner}>
+            <Text style={styles.alertText}>{alert}</Text>
+          </View>
+        ) : null}
 
         <View style={styles.statsRow}>
           <Stat value={distance.toFixed(2)} unit="km" label="Distance" />
@@ -115,6 +199,12 @@ export default function JourneyScreen() {
           </View>
         </View>
 
+        {tracking ? (
+          <Pressable style={styles.muteToggle} onPress={() => setMuted((m) => !m)}>
+            <Text style={styles.muteText}>{muted ? "Voice alerts: off" : "Voice alerts: on"}</Text>
+          </Pressable>
+        ) : null}
+
         {!tracking ? (
           <Pressable style={[styles.button, starting && { opacity: 0.6 }]} onPress={start} disabled={starting}>
             {starting ? <ActivityIndicator color="#fff" /> : <Text style={styles.buttonText}>Start drive</Text>}
@@ -126,8 +216,8 @@ export default function JourneyScreen() {
         )}
 
         <Text style={styles.note}>
-          Tracking uses foreground GPS. Keep the screen on while driving. (Background tracking & a live map
-          arrive with the production build.)
+          Journey Mode tracks your route and gives spoken alerts for ERP gantries and nearby traffic as you
+          drive. Keep the screen on. (Background tracking arrives with the production build.)
         </Text>
       </View>
     </SafeAreaView>
@@ -175,6 +265,24 @@ const styles = StyleSheet.create({
   },
   pulseActive: { borderColor: "#4f8cff", backgroundColor: "#16223a" },
   pulseText: { color: "#e7eefc", fontSize: 16, fontWeight: "700" },
+  alertBanner: {
+    backgroundColor: "#3a2a0c",
+    borderColor: "#e0a106",
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: 14,
+  },
+  alertText: { color: "#ffd874", fontSize: 15, fontWeight: "700", textAlign: "center" },
+  muteToggle: {
+    alignSelf: "center",
+    backgroundColor: "#131c2e",
+    borderColor: "#243049",
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+  },
+  muteText: { color: "#9fb0d0", fontSize: 13, fontWeight: "700" },
   button: { backgroundColor: "#4f8cff", borderRadius: 14, paddingVertical: 17, alignItems: "center" },
   stop: { backgroundColor: "#e5484d" },
   buttonText: { color: "#fff", fontSize: 17, fontWeight: "800" },

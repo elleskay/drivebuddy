@@ -136,6 +136,7 @@ export const api = {
   erp: () => authed("/external/dashboard/erp") as Promise<Feed<ErpItem[]>>,
   carpark: () => authed("/external/dashboard/carpark") as Promise<Feed<CarparkItem[]>>,
   petrol: () => authed("/external/dashboard/petrol") as Promise<Feed<PetrolItem[]>>,
+  erpGantries: () => authed("/external/erp-gantries") as Promise<ErpGantry[]>,
 
   // Trips / GPS tracking
   startRoute: (name?: string) =>
@@ -336,4 +337,10 @@ export interface PetrolItem {
   brand: string;
   product: string;
   price: number;
+}
+export interface ErpGantry {
+  id: string;
+  name: string;
+  lat: number;
+  lng: number;
 }

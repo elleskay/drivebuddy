@@ -1,5 +1,6 @@
 import { Controller, Get } from "@nestjs/common";
 import { ExternalService } from "./external.service";
+import { ERP_GANTRIES } from "./erp-gantries";
 
 /**
  * Public Singapore live-data feeds for the dashboard. No auth - these are public
@@ -33,5 +34,11 @@ export class ExternalController {
   @Get("dashboard/petrol")
   petrol() {
     return this.external.petrol();
+  }
+
+  /** ERP gantry coordinates for in-drive proximity alerts (public reference data). */
+  @Get("erp-gantries")
+  erpGantries() {
+    return ERP_GANTRIES.map(({ id, name, lat, lng }) => ({ id, name, lat, lng }));
   }
 }
