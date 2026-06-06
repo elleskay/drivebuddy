@@ -12,6 +12,8 @@ export interface Insights {
   busiestDay: string | null; // Mon..Sun
   erpPeakTrips: number; // trips departing during ERP peak windows
   topDestinations: { label: string; lat: number; lng: number; count: number }[];
+  recentDistanceKm: number; // distance driven in the last 14 days
+  crossesCauseway: string | null; // "Woodlands" | "Tuas" if drives reach a checkpoint
 }
 
 export interface RecommendationDraft {
@@ -22,6 +24,24 @@ export interface RecommendationDraft {
 }
 
 const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+// SG-Malaysia land checkpoints. A drive ending near one means the driver heads
+// to/from Johor via the Causeway (Woodlands) or Second Link (Tuas).
+const CHECKPOINTS = [
+  { name: "Woodlands", lat: 1.4467, lng: 103.7686 },
+  { name: "Tuas", lat: 1.3482, lng: 103.6361 },
+];
+const CHECKPOINT_RADIUS_KM = 3;
+
+function haversineKm(aLat: number, aLng: number, bLat: number, bLng: number): number {
+  const R = 6371;
+  const dLat = ((bLat - aLat) * Math.PI) / 180;
+  const dLng = ((bLng - aLng) * Math.PI) / 180;
+  const s =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos((aLat * Math.PI) / 180) * Math.cos((bLat * Math.PI) / 180) * Math.sin(dLng / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(s));
+}
 
 function cost(t: TripSummary): number {
   return Number(t.fuelCost) + Number(t.erpCost) + Number(t.parkingCost);
@@ -52,11 +72,15 @@ export function computeInsights(trips: TripSummary[]): Insights {
   };
   const last7Trips = trips.filter((t) => inWindow(t, now - 7 * DAY, now));
   const prev7Trips = trips.filter((t) => inWindow(t, now - 14 * DAY, now - 7 * DAY));
+  const recentDistanceKm = trips
+    .filter((t) => inWindow(t, now - 14 * DAY, now))
+    .reduce((s, t) => s + t.distanceKm, 0);
 
   const hourCounts = new Array(24).fill(0) as number[];
   const dayCounts = new Array(7).fill(0) as number[];
   let erpPeakTrips = 0;
   const destBuckets = new Map<string, { lat: number; lng: number; count: number }>();
+  const checkpointHits = new Map<string, number>();
 
   for (const t of trips) {
     const h = sgtHour(t.startTime);
@@ -70,7 +94,16 @@ export function computeInsights(trips: TripSummary[]): Insights {
       b.count++;
       destBuckets.set(key, b);
     }
+    // Causeway/Second Link detection: trip start OR end near a checkpoint.
+    for (const cp of CHECKPOINTS) {
+      const nearEnd = t.endLat != null && t.endLng != null && haversineKm(cp.lat, cp.lng, t.endLat, t.endLng) <= CHECKPOINT_RADIUS_KM;
+      const nearStart = t.startLat != null && t.startLng != null && haversineKm(cp.lat, cp.lng, t.startLat, t.startLng) <= CHECKPOINT_RADIUS_KM;
+      if (nearEnd || nearStart) checkpointHits.set(cp.name, (checkpointHits.get(cp.name) ?? 0) + 1);
+    }
   }
+
+  const crossesCauseway =
+    [...checkpointHits.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? null;
 
   const peakHour = totalTrips ? hourCounts.indexOf(Math.max(...hourCounts)) : null;
   const busiestDay = totalTrips ? DAYS[dayCounts.indexOf(Math.max(...dayCounts))]! : null;
@@ -91,6 +124,8 @@ export function computeInsights(trips: TripSummary[]): Insights {
     busiestDay,
     erpPeakTrips,
     topDestinations,
+    recentDistanceKm,
+    crossesCauseway,
   };
 }
 
@@ -143,6 +178,39 @@ export function buildRecommendations(i: Insights): RecommendationDraft[] {
       title: "Busier week on the road",
       body: `You drove ${i.last7.trips} times this week vs ${i.prev7.trips} last week. Plan parking ahead - check live carpark availability at peak times.`,
       score: 45,
+    });
+  }
+
+  // Causeway / Second Link crossing: surface checkpoint-traffic guidance.
+  if (i.crossesCauseway) {
+    const other = i.crossesCauseway === "Woodlands" ? "Tuas (Second Link)" : "Woodlands (Causeway)";
+    recs.push({
+      category: "routine",
+      title: "Causeway crossing",
+      body: `Some of your drives reach the ${i.crossesCauseway} checkpoint. Check live checkpoint traffic before you set off - if it's jammed, ${other} or an off-peak departure can be much faster.`,
+      score: 72,
+    });
+  }
+
+  // Refuelling nudge: distance-based, since refuel events aren't tracked. ~350km
+  // is a rough sedan tank range, so this surfaces when a fill-up is likely due.
+  if (i.recentDistanceKm >= 350) {
+    recs.push({
+      category: "fuel",
+      title: "Fuel check",
+      body: `You've driven about ${i.recentDistanceKm.toFixed(0)} km in the last two weeks - a refuel may be due soon. Compare 95 petrol prices on the dashboard before your next fill-up.`,
+      score: 58,
+    });
+  }
+
+  // Carpark routine: tie a parking tip to the most frequent destination.
+  const topDest = i.topDestinations[0];
+  if (topDest && topDest.count >= 2) {
+    recs.push({
+      category: "carpark",
+      title: "Parking at your usual spot",
+      body: `You often park near ${topDest.label} (${topDest.count} visits). Check live carpark availability there before arriving, or pick a nearby carpark with more free lots.`,
+      score: 48,
     });
   }
 

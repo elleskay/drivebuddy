@@ -211,6 +211,8 @@ export interface Insights {
   busiestDay: string | null;
   erpPeakTrips: number;
   topDestinations: { label: string; lat: number; lng: number; count: number }[];
+  recentDistanceKm: number;
+  crossesCauseway: string | null;
 }
 export interface Recommendation {
   id: string;
