@@ -19,7 +19,8 @@ export default function VehiclesScreen() {
   const [loading, setLoading] = useState(true);
   const [adding, setAdding] = useState(false);
 
-  // add-form state
+  // add/edit-form state (the footer form doubles as the editor)
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [number, setNumber] = useState("");
   const [fuelType, setFuelType] = useState<FuelType>("Petrol");
   const [consumption, setConsumption] = useState("");
@@ -37,7 +38,23 @@ export default function VehiclesScreen() {
     void load();
   }, [load]);
 
-  async function onAdd() {
+  function resetForm() {
+    setNumber("");
+    setConsumption("");
+    setFuelType("Petrol");
+    setEditingId(null);
+    setError(null);
+  }
+
+  function startEdit(v: Vehicle) {
+    setEditingId(v.id);
+    setNumber(v.vehicleNumber);
+    setFuelType(v.fuelType);
+    setConsumption(String(v.fuelConsumption));
+    setError(null);
+  }
+
+  async function onSubmit() {
     const c = parseFloat(consumption);
     if (!number.trim() || Number.isNaN(c)) {
       setError("Enter a plate number and a fuel consumption number.");
@@ -46,13 +63,16 @@ export default function VehiclesScreen() {
     setAdding(true);
     setError(null);
     try {
-      await api.addVehicle({ vehicleNumber: number.trim().toUpperCase(), fuelType, fuelConsumption: c });
-      setNumber("");
-      setConsumption("");
-      setFuelType("Petrol");
+      const payload = { vehicleNumber: number.trim().toUpperCase(), fuelType, fuelConsumption: c };
+      if (editingId) {
+        await api.updateVehicle(editingId, payload);
+      } else {
+        await api.addVehicle(payload);
+      }
+      resetForm();
       await load();
     } catch (e) {
-      setError(e instanceof ApiError ? e.message : "Could not add vehicle.");
+      setError(e instanceof ApiError ? e.message : "Could not save vehicle.");
     } finally {
       setAdding(false);
     }
@@ -112,6 +132,9 @@ export default function VehiclesScreen() {
                 <Text style={styles.smallBtnText}>Set main</Text>
               </Pressable>
             ) : null}
+            <Pressable onPress={() => startEdit(item)} style={styles.smallBtn}>
+              <Text style={styles.smallBtnText}>Edit</Text>
+            </Pressable>
             <Pressable onPress={() => onDelete(item)} style={styles.deleteBtn}>
               <Text style={styles.deleteText}>Delete</Text>
             </Pressable>
@@ -119,7 +142,7 @@ export default function VehiclesScreen() {
         )}
         ListFooterComponent={
           <View style={styles.addCard}>
-            <Text style={styles.addTitle}>Add a vehicle</Text>
+            <Text style={styles.addTitle}>{editingId ? "Edit vehicle" : "Add a vehicle"}</Text>
             {error ? <Text style={styles.error}>{error}</Text> : null}
             <TextInput
               style={styles.input}
@@ -148,9 +171,18 @@ export default function VehiclesScreen() {
               value={consumption}
               onChangeText={setConsumption}
             />
-            <Pressable style={[styles.button, adding && { opacity: 0.6 }]} onPress={onAdd} disabled={adding}>
-              {adding ? <ActivityIndicator color="#fff" /> : <Text style={styles.buttonText}>Add vehicle</Text>}
+            <Pressable style={[styles.button, adding && { opacity: 0.6 }]} onPress={onSubmit} disabled={adding}>
+              {adding ? (
+                <ActivityIndicator color="#fff" />
+              ) : (
+                <Text style={styles.buttonText}>{editingId ? "Save changes" : "Add vehicle"}</Text>
+              )}
             </Pressable>
+            {editingId ? (
+              <Pressable style={styles.cancelBtn} onPress={resetForm} disabled={adding}>
+                <Text style={styles.cancelText}>Cancel</Text>
+              </Pressable>
+            ) : null}
           </View>
         }
       />
@@ -225,5 +257,7 @@ const styles = StyleSheet.create({
   fuelChipTextActive: { color: "#fff" },
   button: { backgroundColor: "#4f8cff", borderRadius: 12, paddingVertical: 14, alignItems: "center", marginTop: 4 },
   buttonText: { color: "#fff", fontSize: 16, fontWeight: "700" },
+  cancelBtn: { alignItems: "center", paddingVertical: 8 },
+  cancelText: { color: "#9fb0d0", fontSize: 14, fontWeight: "600" },
   error: { color: "#ff6b6b" },
 });

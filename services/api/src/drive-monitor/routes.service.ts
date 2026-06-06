@@ -65,7 +65,7 @@ export class RoutesService {
       where: { id: routeId },
       data: { isActive: false, endTime: route.endTime ?? new Date() },
     });
-    const summary = await this.trips.createForRoute(userId, routeId);
+    const { summary, maintenanceDueKm } = await this.trips.createForRoute(userId, routeId);
 
     // Notify the driver their post-trip summary is ready (honours settings; the
     // worker fans it out to push). Best-effort - never fail completion on this.
@@ -78,6 +78,18 @@ export class RoutesService {
         data: { routeId },
       })
       .catch(() => undefined);
+
+    // Maintenance reminder when cumulative mileage crosses a service interval.
+    if (maintenanceDueKm) {
+      await this.notifications
+        .create(userId, {
+          type: "SYSTEM",
+          title: "Maintenance reminder",
+          body: `You've driven about ${maintenanceDueKm.toLocaleString("en-SG")} km. Time for a service check - oil, tyres and brakes.`,
+          data: { kind: "maintenance", dueKm: maintenanceDueKm },
+        })
+        .catch(() => undefined);
+    }
 
     return { route: await this.getOne(userId, routeId), summary };
   }
@@ -103,4 +115,36 @@ export class RoutesService {
     });
     return { ...route, points };
   }
+
+  /** Delete a route (cascades to its GPS points and trip summary). */
+  async remove(userId: string, id: string) {
+    const res = await this.prisma.drivingRoute.deleteMany({ where: { id, userId } });
+    if (res.count === 0) throw new NotFoundException("Route not found");
+    return { ok: true };
+  }
+
+  /** Serialise a route's GPS trace as a GPX 1.1 document. */
+  async exportGpx(userId: string, id: string): Promise<string> {
+    const route = await this.getOne(userId, id);
+    const pts = route.points
+      .map((p) => {
+        const ele = p.altitude != null ? `<ele>${p.altitude}</ele>` : "";
+        const time = new Date(p.timestamp).toISOString();
+        return `      <trkpt lat="${p.latitude}" lon="${p.longitude}">${ele}<time>${time}</time></trkpt>`;
+      })
+      .join("\n");
+    const name = escapeXml(route.name ?? "DriveBuddy route");
+    return (
+      `<?xml version="1.0" encoding="UTF-8"?>\n` +
+      `<gpx version="1.1" creator="DriveBuddy" xmlns="http://www.topografix.com/GPX/1/1">\n` +
+      `  <metadata><name>${name}</name><time>${new Date(route.startTime).toISOString()}</time></metadata>\n` +
+      `  <trk>\n    <name>${name}</name>\n    <trkseg>\n${pts}\n    </trkseg>\n  </trk>\n</gpx>\n`
+    );
+  }
+}
+
+function escapeXml(s: string): string {
+  return s.replace(/[<>&'"]/g, (c) =>
+    c === "<" ? "&lt;" : c === ">" ? "&gt;" : c === "&" ? "&amp;" : c === "'" ? "&apos;" : "&quot;",
+  );
 }

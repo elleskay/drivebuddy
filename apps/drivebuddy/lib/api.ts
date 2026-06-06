@@ -122,6 +122,10 @@ export const api = {
   listVehicles: () => authed("/vehicles") as Promise<Vehicle[]>,
   addVehicle: (v: { vehicleNumber: string; fuelType: FuelType; fuelConsumption: number }) =>
     authed("/vehicles", { method: "POST", body: JSON.stringify(v) }) as Promise<Vehicle>,
+  updateVehicle: (
+    id: string,
+    patch: Partial<{ vehicleNumber: string; fuelType: FuelType; fuelConsumption: number }>,
+  ) => authed(`/vehicles/${id}`, { method: "PATCH", body: JSON.stringify(patch) }) as Promise<Vehicle>,
   setMainVehicle: (id: string) =>
     authed(`/vehicles/${id}/set-main`, { method: "POST" }) as Promise<Vehicle>,
   removeVehicle: (id: string) => authed(`/vehicles/${id}`, { method: "DELETE" }) as Promise<unknown>,
@@ -149,6 +153,17 @@ export const api = {
   listRoutes: () => authed("/drive-monitor/routes") as Promise<DrivingRoute[]>,
   getActiveRoute: () => authed("/drive-monitor/routes/active") as Promise<DrivingRoute | null>,
   getRoute: (id: string) => authed(`/drive-monitor/routes/${id}`) as Promise<RouteDetail>,
+  deleteRoute: (id: string) =>
+    authed(`/drive-monitor/routes/${id}`, { method: "DELETE" }) as Promise<{ ok: boolean }>,
+  // Returns the route's GPS trace as a GPX document (text, not JSON).
+  async exportRouteGpx(id: string): Promise<string> {
+    const token = await getAccessToken();
+    const res = await fetch(`${API_URL}/drive-monitor/routes/${id}/export`, {
+      headers: token ? { authorization: `Bearer ${token}` } : {},
+    });
+    if (!res.ok) throw new ApiError(res.status, `Export failed (${res.status})`);
+    return res.text();
+  },
   listTrips: () => authed("/trips") as Promise<TripSummary[]>,
   getTrip: (routeId: string) => authed(`/trips/${routeId}`) as Promise<TripSummary>,
 

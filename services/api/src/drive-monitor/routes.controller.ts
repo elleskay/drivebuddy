@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Post, UseGuards } from "@nestjs/common";
+import { Body, Controller, Delete, Get, Header, Param, Post, UseGuards } from "@nestjs/common";
 import { JwtAuthGuard } from "../auth/jwt-auth.guard";
 import { CurrentUser } from "../auth/current-user.decorator";
 import type { AuthUser } from "../auth/jwt.strategy";
@@ -28,6 +28,19 @@ export class RoutesController {
   @Get(":id")
   get(@CurrentUser() user: AuthUser, @Param("id") id: string) {
     return this.routes.getOne(user.id, id);
+  }
+
+  /** Export a route's GPS trace as a GPX file (shareable / importable). */
+  @Get(":id/export")
+  @Header("Content-Type", "application/gpx+xml")
+  @Header("Content-Disposition", 'attachment; filename="drivebuddy-route.gpx"')
+  export(@CurrentUser() user: AuthUser, @Param("id") id: string) {
+    return this.routes.exportGpx(user.id, id);
+  }
+
+  @Delete(":id")
+  remove(@CurrentUser() user: AuthUser, @Param("id") id: string) {
+    return this.routes.remove(user.id, id);
   }
 
   @Post(":id/points")

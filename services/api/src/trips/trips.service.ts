@@ -64,11 +64,28 @@ export class TripsService {
       parkingCost: new Prisma.Decimal(0),
     };
 
-    return this.prisma.tripSummary.upsert({
+    const summary = await this.prisma.tripSummary.upsert({
       where: { routeId },
       create: { routeId, ...data },
       update: data,
     });
+
+    // Maintenance reminder: fire once each time the driver's cumulative mileage
+    // crosses a service interval. Comparing pre/post cumulative makes it
+    // self-deduplicating (a re-complete of the same route doesn't re-fire).
+    const SERVICE_INTERVAL_KM = 10_000;
+    const agg = await this.prisma.tripSummary.aggregate({
+      where: { userId },
+      _sum: { distanceKm: true },
+    });
+    const cumulative = agg._sum.distanceKm ?? 0;
+    const prev = cumulative - summary.distanceKm;
+    let maintenanceDueKm: number | null = null;
+    if (Math.floor(prev / SERVICE_INTERVAL_KM) < Math.floor(cumulative / SERVICE_INTERVAL_KM)) {
+      maintenanceDueKm = Math.floor(cumulative / SERVICE_INTERVAL_KM) * SERVICE_INTERVAL_KM;
+    }
+
+    return { summary, maintenanceDueKm };
   }
 
   listForUser(userId: string) {

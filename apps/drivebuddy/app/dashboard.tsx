@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { ActivityIndicator, RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import {
   api,
@@ -19,10 +19,19 @@ interface Data {
   erp: Feed<ErpItem[]>;
 }
 
+const REFRESH_OPTIONS: { label: string; ms: number }[] = [
+  { label: "Off", ms: 0 },
+  { label: "30s", ms: 30_000 },
+  { label: "1m", ms: 60_000 },
+  { label: "2m", ms: 120_000 },
+];
+
 export default function DashboardScreen() {
   const [data, setData] = useState<Data | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [intervalMs, setIntervalMs] = useState(60_000); // configurable auto-refresh
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
 
   const load = useCallback(async () => {
     const [weather, petrol, traffic, carpark, erp] = await Promise.all([
@@ -33,11 +42,21 @@ export default function DashboardScreen() {
       api.erp(),
     ]);
     setData({ weather, petrol, traffic, carpark, erp });
+    setLastUpdated(new Date());
   }, []);
 
   useEffect(() => {
     load().finally(() => setLoading(false));
   }, [load]);
+
+  // Auto-refresh at the chosen cadence (silent; pull-to-refresh still available).
+  useEffect(() => {
+    if (!intervalMs) return;
+    const id = setInterval(() => {
+      load().catch(() => undefined);
+    }, intervalMs);
+    return () => clearInterval(id);
+  }, [intervalMs, load]);
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);
@@ -58,6 +77,23 @@ export default function DashboardScreen() {
         contentContainerStyle={styles.inner}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#4f8cff" />}
       >
+        <View style={styles.refreshBar}>
+          <Text style={styles.refreshLabel}>
+            Auto-refresh{lastUpdated ? ` · updated ${lastUpdated.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" })}` : ""}
+          </Text>
+          <View style={styles.chips}>
+            {REFRESH_OPTIONS.map((o) => (
+              <Pressable
+                key={o.label}
+                onPress={() => setIntervalMs(o.ms)}
+                style={[styles.chip, intervalMs === o.ms && styles.chipActive]}
+              >
+                <Text style={[styles.chipText, intervalMs === o.ms && styles.chipTextActive]}>{o.label}</Text>
+              </Pressable>
+            ))}
+          </View>
+        </View>
+
         <Card title="Weather" subtitle="Next 2 hours · data.gov.sg">
           {data?.weather.data.slice(0, 6).map((w) => (
             <Row key={w.area} left={w.area} right={w.forecast} />
@@ -152,4 +188,18 @@ const styles = StyleSheet.create({
   rowLeft: { color: "#9fb0d0", fontSize: 14, flexShrink: 1 },
   rowRight: { color: "#e7eefc", fontSize: 14, fontWeight: "600", textAlign: "right", flexShrink: 1 },
   muted: { color: "#5a6b8c", fontSize: 13, fontStyle: "italic" },
+  refreshBar: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8 },
+  refreshLabel: { color: "#5a6b8c", fontSize: 12, flexShrink: 1 },
+  chips: { flexDirection: "row", gap: 6 },
+  chip: {
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "#243049",
+    backgroundColor: "#131c2e",
+  },
+  chipActive: { backgroundColor: "#4f8cff", borderColor: "#4f8cff" },
+  chipText: { color: "#9fb0d0", fontSize: 12, fontWeight: "700" },
+  chipTextActive: { color: "#fff" },
 });
