@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState } from "react";
 import { Animated, StyleSheet, View, type DimensionValue, type ViewStyle } from "react-native";
+import { LinearGradient } from "expo-linear-gradient";
 import { colors, radius, shadow, spacing } from "@/lib/theme";
 
-// Zero-dependency skeleton loaders with a real sweeping sheen (RN Animated only -
-// no Reanimated, no linear-gradient). A light highlight bar translates across a
-// muted base, which reads far better than a flat opacity pulse.
+// Skeleton loaders with a real diagonal gradient shimmer sweeping across a muted
+// base (expo-linear-gradient + RN Animated). Reads as a premium loading state.
 
 export function Skeleton({
   width = "100%",
@@ -22,7 +22,7 @@ export function Skeleton({
 
   useEffect(() => {
     const loop = Animated.loop(
-      Animated.timing(x, { toValue: 1, duration: 1200, useNativeDriver: true }),
+      Animated.timing(x, { toValue: 1, duration: 1300, useNativeDriver: true }),
     );
     loop.start();
     return () => loop.stop();
@@ -36,15 +36,17 @@ export function Skeleton({
       {w > 0 ? (
         <Animated.View
           style={{
-            position: "absolute",
-            top: 0,
-            bottom: 0,
-            width: w * 0.5,
-            backgroundColor: colors.skeletonHighlight,
-            opacity: 0.85,
-            transform: [{ translateX: x.interpolate({ inputRange: [0, 1], outputRange: [-w * 0.6, w * 1.1] }) }],
+            ...StyleSheet.absoluteFillObject,
+            transform: [{ translateX: x.interpolate({ inputRange: [0, 1], outputRange: [-w, w] }) }],
           }}
-        />
+        >
+          <LinearGradient
+            colors={["transparent", "rgba(255,255,255,0.95)", "transparent"]}
+            start={{ x: 0, y: 0.2 }}
+            end={{ x: 1, y: 0.8 }}
+            style={{ flex: 1 }}
+          />
+        </Animated.View>
       ) : null}
     </View>
   );
@@ -54,9 +56,14 @@ export function Skeleton({
 export function SkeletonCard() {
   return (
     <View style={styles.card}>
-      <Skeleton width="55%" height={18} />
-      <Skeleton width="85%" height={12} style={{ marginTop: spacing.sm }} />
-      <Skeleton width="45%" height={12} style={{ marginTop: spacing.sm }} />
+      <View style={styles.rowTop}>
+        <Skeleton width={40} height={40} radius={radius.round} />
+        <View style={{ flex: 1, gap: spacing.sm }}>
+          <Skeleton width="55%" height={16} />
+          <Skeleton width="80%" height={12} />
+        </View>
+      </View>
+      <Skeleton width="45%" height={12} style={{ marginTop: spacing.md }} />
     </View>
   );
 }
@@ -82,4 +89,5 @@ const styles = StyleSheet.create({
     padding: spacing.lg,
     ...shadow,
   },
+  rowTop: { flexDirection: "row", alignItems: "center", gap: spacing.md },
 });

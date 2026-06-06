@@ -1,21 +1,47 @@
-import { ActivityIndicator, Pressable, StyleSheet, Text, View, type ViewStyle } from "react-native";
-import { colors, radius, shadow, spacing, TOUCH_TARGET } from "@/lib/theme";
+import { useRef } from "react";
+import { ActivityIndicator, Animated, Pressable, StyleSheet, Text, View, type ViewStyle } from "react-native";
+import { LinearGradient } from "expo-linear-gradient";
+import { Ionicons } from "@expo/vector-icons";
+import { colors, gradients, radius, shadow, spacing, TOUCH_TARGET } from "@/lib/theme";
 
-// Small, token-driven primitive set (variant API in the shadcn / react-native-
-// reusables spirit) so screens compose consistent UI without a heavy library or
-// NativeWind. Pure StyleSheet - no new deps, no native rebuild.
+type IoniconName = React.ComponentProps<typeof Ionicons>["name"];
 
-type CardVariant = "default" | "primary";
 export function Card({
   children,
   variant = "default",
   style,
 }: {
   children: React.ReactNode;
-  variant?: CardVariant;
+  variant?: "default" | "primary";
   style?: ViewStyle;
 }) {
   return <View style={[styles.card, variant === "primary" && styles.cardPrimary, style]}>{children}</View>;
+}
+
+/** Gradient hero banner (greeting / section headline). */
+export function Hero({
+  title,
+  subtitle,
+  children,
+  style,
+}: {
+  title: string;
+  subtitle?: string;
+  children?: React.ReactNode;
+  style?: ViewStyle;
+}) {
+  return (
+    <LinearGradient
+      colors={gradients.hero as unknown as string[]}
+      start={{ x: 0, y: 0 }}
+      end={{ x: 1, y: 1 }}
+      style={[styles.hero, style]}
+    >
+      <Text style={styles.heroTitle}>{title}</Text>
+      {subtitle ? <Text style={styles.heroSub}>{subtitle}</Text> : null}
+      {children}
+    </LinearGradient>
+  );
 }
 
 type ButtonVariant = "primary" | "ghost" | "danger";
@@ -35,23 +61,30 @@ export function Button({
   style?: ViewStyle;
 }) {
   const isGhost = variant === "ghost";
+  const inner = loading ? (
+    <ActivityIndicator color={isGhost ? colors.primary : "#fff"} />
+  ) : (
+    <Text style={[styles.btnText, isGhost && { color: colors.primary }]}>{label}</Text>
+  );
   return (
     <Pressable
       onPress={onPress}
       disabled={disabled || loading}
-      style={[
-        styles.btn,
-        variant === "primary" && styles.btnPrimary,
-        variant === "danger" && styles.btnDanger,
-        isGhost && styles.btnGhost,
-        (disabled || loading) && { opacity: 0.6 },
-        style,
-      ]}
+      style={[styles.btnWrap, (disabled || loading) && { opacity: 0.6 }, style]}
     >
-      {loading ? (
-        <ActivityIndicator color={isGhost ? colors.primary : "#fff"} />
+      {variant === "primary" ? (
+        <LinearGradient
+          colors={gradients.primary as unknown as string[]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 0 }}
+          style={styles.btn}
+        >
+          {inner}
+        </LinearGradient>
       ) : (
-        <Text style={[styles.btnText, isGhost && { color: colors.primary }]}>{label}</Text>
+        <View style={[styles.btn, variant === "danger" && { backgroundColor: colors.danger }, isGhost && styles.btnGhost]}>
+          {inner}
+        </View>
       )}
     </Pressable>
   );
@@ -65,10 +98,12 @@ export function Badge({ value }: { value: number | string }) {
   );
 }
 
-/** Glanceable navigation tile (home grid). Min height meets the touch-target guide. */
+/** Glanceable nav tile with a coloured icon badge, chevron, and press animation. */
 export function NavCard({
   title,
   desc,
+  icon,
+  tint = colors.primary,
   onPress,
   primary = false,
   badge,
@@ -76,19 +111,51 @@ export function NavCard({
 }: {
   title: string;
   desc: string;
+  icon: IoniconName;
+  tint?: string;
   onPress: () => void;
   primary?: boolean;
   badge?: number;
   style?: ViewStyle;
 }) {
-  return (
-    <Pressable onPress={onPress} style={[styles.nav, primary && styles.navPrimary, style]}>
-      <View style={styles.navRow}>
-        <Text style={styles.navTitle}>{title}</Text>
-        {badge != null && badge > 0 ? <Badge value={badge > 99 ? "99+" : badge} /> : null}
+  const scale = useRef(new Animated.Value(1)).current;
+  const to = (v: number) => Animated.spring(scale, { toValue: v, useNativeDriver: true, speed: 40, bounciness: 6 }).start();
+
+  const content = (
+    <>
+      <View style={[styles.iconWrap, primary ? styles.iconWrapGrad : { backgroundColor: tint + "1a" }]}>
+        <Ionicons name={icon} size={22} color={primary ? "#fff" : tint} />
       </View>
-      <Text style={styles.navDesc}>{desc}</Text>
-    </Pressable>
+      <View style={{ flex: 1 }}>
+        <View style={styles.navRow}>
+          <Text style={[styles.navTitle, primary && { color: "#fff" }]}>{title}</Text>
+          {badge != null && badge > 0 ? <Badge value={badge > 99 ? "99+" : badge} /> : null}
+        </View>
+        <Text style={[styles.navDesc, primary && { color: "rgba(255,255,255,0.9)" }]} numberOfLines={2}>
+          {desc}
+        </Text>
+      </View>
+      <Ionicons name="chevron-forward" size={18} color={primary ? "rgba(255,255,255,0.85)" : colors.textDim} />
+    </>
+  );
+
+  return (
+    <Animated.View style={[{ transform: [{ scale }] }, style]}>
+      <Pressable onPress={onPress} onPressIn={() => to(0.97)} onPressOut={() => to(1)}>
+        {primary ? (
+          <LinearGradient
+            colors={gradients.primary as unknown as string[]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={[styles.navBase, shadow]}
+          >
+            {content}
+          </LinearGradient>
+        ) : (
+          <View style={[styles.navBase, styles.navCard]}>{content}</View>
+        )}
+      </Pressable>
+    </Animated.View>
   );
 }
 
@@ -102,17 +169,25 @@ const styles = StyleSheet.create({
     ...shadow,
   },
   cardPrimary: { borderColor: colors.primary, backgroundColor: colors.primaryDim },
+  hero: {
+    borderRadius: 20,
+    padding: spacing.xl,
+    gap: 4,
+    ...shadow,
+    shadowOpacity: 0.18,
+    shadowColor: "#4338ca",
+  },
+  heroTitle: { color: "#fff", fontSize: 26, fontWeight: "800" },
+  heroSub: { color: "rgba(255,255,255,0.85)", fontSize: 14, marginTop: 2 },
+  btnWrap: { borderRadius: radius.lg, overflow: "hidden" },
   btn: {
     minHeight: TOUCH_TARGET,
-    borderRadius: radius.lg,
     paddingVertical: 14,
     paddingHorizontal: spacing.lg,
     alignItems: "center",
     justifyContent: "center",
   },
-  btnPrimary: { backgroundColor: colors.primary },
-  btnDanger: { backgroundColor: colors.danger },
-  btnGhost: { backgroundColor: "transparent", borderWidth: 1, borderColor: colors.border },
+  btnGhost: { backgroundColor: "transparent", borderWidth: 1, borderColor: colors.border, borderRadius: radius.lg },
   btnText: { color: "#fff", fontSize: 16, fontWeight: "800" },
   badge: {
     minWidth: 22,
@@ -124,19 +199,18 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   badgeText: { color: "#fff", fontSize: 12, fontWeight: "800" },
-  nav: {
-    minHeight: 92,
-    justifyContent: "center",
-    backgroundColor: colors.surface,
-    borderColor: colors.border,
-    borderWidth: 1,
+  navBase: {
+    minHeight: 76,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.md,
     borderRadius: radius.lg,
-    padding: spacing.lg,
-    gap: 4,
-    ...shadow,
+    padding: spacing.md,
   },
-  navPrimary: { borderColor: colors.primary, backgroundColor: colors.primaryDim },
+  navCard: { backgroundColor: colors.surface, borderColor: colors.border, borderWidth: 1, ...shadow },
+  iconWrap: { width: 44, height: 44, borderRadius: radius.md, alignItems: "center", justifyContent: "center" },
+  iconWrapGrad: { backgroundColor: "rgba(255,255,255,0.22)" },
   navRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8 },
   navTitle: { color: colors.text, fontSize: 16, fontWeight: "700", flexShrink: 1 },
-  navDesc: { color: colors.textMuted, fontSize: 12 },
+  navDesc: { color: colors.textMuted, fontSize: 12, marginTop: 1 },
 });

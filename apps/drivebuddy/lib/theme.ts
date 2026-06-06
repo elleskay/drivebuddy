@@ -18,6 +18,23 @@ export const colors = {
   skeletonHighlight: "#fbfdff", // sweeping sheen
 } as const;
 
+// Gradients (for hero, buttons, shimmer). LinearGradient `colors` expects an array.
+export const gradients = {
+  primary: ["#3b82f6", "#4f46e5"], // blue-500 -> indigo-600
+  hero: ["#1d4ed8", "#4f46e5", "#7c3aed"], // blue -> indigo -> violet
+} as const;
+
+// Per-category accent colours for icons/chips (visual variety + glanceability).
+export const accent = {
+  erp: "#dc2626",
+  fuel: "#16a34a",
+  traffic: "#f59e0b",
+  weather: "#0ea5e9",
+  carpark: "#7c3aed",
+  routine: "#2563eb",
+  safety: "#ef4444",
+} as const;
+
 export const spacing = { xs: 4, sm: 8, md: 12, lg: 16, xl: 24 } as const;
 
 export const radius = { sm: 8, md: 12, lg: 14, pill: 22, round: 999 } as const;
