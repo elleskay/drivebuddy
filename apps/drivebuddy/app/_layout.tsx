@@ -3,6 +3,8 @@ import { StatusBar } from "expo-status-bar";
 import { useEffect } from "react";
 import { ActivityIndicator, Pressable, Text, View } from "react-native";
 import { AuthProvider, useAuth } from "@/lib/auth-context";
+// Registers the background location task (TaskManager.defineTask) at app start.
+import "@/lib/location-task";
 
 function Gate() {
   const { ready, signedIn } = useAuth();

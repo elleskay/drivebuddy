@@ -5,6 +5,7 @@ import { useRouter } from "expo-router";
 import * as Location from "expo-location";
 import * as Speech from "expo-speech";
 import { api, type ErpGantry, type GpsSample, type TrafficItem } from "@/lib/api";
+import { LOCATION_TASK, setActiveRouteId } from "@/lib/location-task";
 
 // In-drive alert tuning.
 const GANTRY_RADIUS_KM = 0.35; // announce an ERP gantry within ~350m
@@ -31,12 +32,14 @@ export default function JourneyScreen() {
   const [elapsed, setElapsed] = useState(0);
   const [alert, setAlert] = useState<string | null>(null);
   const [muted, setMuted] = useState(false);
+  const [background, setBackground] = useState(false);
 
   const routeId = useRef<string | null>(null);
   const buffer = useRef<GpsSample[]>([]);
   const sub = useRef<Location.LocationSubscription | null>(null);
   const timer = useRef<ReturnType<typeof setInterval> | null>(null);
   const startedAt = useRef<number>(0);
+  const bgActive = useRef(false); // true when the OS background task is recording
 
   // In-drive alert state.
   const gantries = useRef<ErpGantry[]>([]);
@@ -81,6 +84,7 @@ export default function JourneyScreen() {
     [announce],
   );
 
+  // Foreground-only fallback flush (used when background permission is denied).
   const flush = useCallback(async () => {
     if (!routeId.current || buffer.current.length === 0) return;
     const batch = buffer.current.splice(0, buffer.current.length);
@@ -88,7 +92,7 @@ export default function JourneyScreen() {
       const route = await api.addPoints(routeId.current, batch);
       setDistance(route.totalDistance);
     } catch {
-      // keep going; points retry on next flush is out of scope for the pilot
+      // best-effort
     }
   }, []);
 
@@ -111,6 +115,33 @@ export default function JourneyScreen() {
       startedAt.current = Date.now();
       setTracking(true);
 
+      // Try to record via the OS background task so the drive keeps recording
+      // with the screen off. Falls back to foreground posting if denied.
+      let bg = false;
+      try {
+        const bgPerm = await Location.requestBackgroundPermissionsAsync();
+        if (bgPerm.status === "granted") {
+          await setActiveRouteId(route.id);
+          await Location.startLocationUpdatesAsync(LOCATION_TASK, {
+            accuracy: Location.Accuracy.High,
+            distanceInterval: 10,
+            timeInterval: 4000,
+            pausesUpdatesAutomatically: false,
+            showsBackgroundLocationIndicator: true,
+            foregroundService: {
+              notificationTitle: "DriveBuddy is recording your drive",
+              notificationBody: "Your route keeps recording even with the screen off.",
+              notificationColor: "#4f8cff",
+            },
+          });
+          bg = true;
+        }
+      } catch {
+        bg = false;
+      }
+      bgActive.current = bg;
+      setBackground(bg);
+
       // Load in-drive context (ERP gantry map + current incidents). Best-effort.
       api
         .erpGantries()
@@ -122,8 +153,6 @@ export default function JourneyScreen() {
         .catch(() => (incidents.current = []));
 
       // Start-of-drive advisories: a weather caution and a fuel-stop suggestion.
-      // (Petrol stations have no public coordinate feed, so the fuel alert is
-      // behaviour + price based rather than proximity based.)
       Promise.all([
         api.weather().catch(() => null),
         api.petrol().catch(() => null),
@@ -136,7 +165,6 @@ export default function JourneyScreen() {
           }
           if (insights && insights.recentDistanceKm >= 350 && petrol?.data?.length) {
             const cheapest = [...petrol.data].sort((a, b) => a.price - b.price)[0]!;
-            // Stagger so it doesn't immediately overwrite the weather banner.
             setTimeout(
               () =>
                 announce(
@@ -149,24 +177,40 @@ export default function JourneyScreen() {
         })
         .catch(() => undefined);
 
+      // Foreground watch: drives the in-drive voice/banner alerts. It also posts
+      // points only when the background task is NOT the recorder (fallback).
       sub.current = await Location.watchPositionAsync(
         { accuracy: Location.Accuracy.High, distanceInterval: 10, timeInterval: 3000 },
         (loc) => {
-          buffer.current.push({
-            latitude: loc.coords.latitude,
-            longitude: loc.coords.longitude,
-            timestamp: new Date(loc.timestamp).toISOString(),
-            altitude: loc.coords.altitude ?? undefined,
-            speed: loc.coords.speed ?? undefined,
-            accuracy: loc.coords.accuracy ?? undefined,
-          });
-          checkProximity(loc.coords.latitude, loc.coords.longitude);
-          if (buffer.current.length >= 5) void flush();
+          const { latitude, longitude } = loc.coords;
+          checkProximity(latitude, longitude);
+          if (!bgActive.current) {
+            buffer.current.push({
+              latitude,
+              longitude,
+              timestamp: new Date(loc.timestamp).toISOString(),
+              altitude: loc.coords.altitude ?? undefined,
+              speed: loc.coords.speed ?? undefined,
+              accuracy: loc.coords.accuracy ?? undefined,
+            });
+            if (buffer.current.length >= 5) void flush();
+          }
         },
       );
+
       timer.current = setInterval(() => {
         setElapsed(Math.floor((Date.now() - startedAt.current) / 1000));
-        void flush();
+        if (bgActive.current) {
+          // Distance is computed server-side from the background-posted points.
+          api
+            .getActiveRoute()
+            .then((r) => {
+              if (r) setDistance(r.totalDistance);
+            })
+            .catch(() => undefined);
+        } else {
+          void flush();
+        }
       }, 5000);
     } catch (e) {
       setError("Could not start tracking. Check your connection.");
@@ -182,7 +226,16 @@ export default function JourneyScreen() {
     sub.current = null;
     if (timer.current) clearInterval(timer.current);
     if (alertTimer.current) clearTimeout(alertTimer.current);
-    await flush();
+    // Stop background recording if it was running.
+    try {
+      if (bgActive.current && (await Location.hasStartedLocationUpdatesAsync(LOCATION_TASK))) {
+        await Location.stopLocationUpdatesAsync(LOCATION_TASK);
+      }
+    } catch {
+      // ignore
+    }
+    await setActiveRouteId(null);
+    if (!bgActive.current) await flush();
     const id = routeId.current;
     try {
       if (id) await api.completeRoute(id);
@@ -244,8 +297,11 @@ export default function JourneyScreen() {
         )}
 
         <Text style={styles.note}>
-          Journey Mode tracks your route and gives spoken alerts for ERP gantries and nearby traffic as you
-          drive. Keep the screen on. (Background tracking arrives with the production build.)
+          {tracking
+            ? background
+              ? "Recording in the background - your route keeps tracking with the screen off. Voice alerts play while the app is open."
+              : "Recording in the foreground. Allow background location to keep tracking with the screen off."
+            : "Journey Mode tracks your route and gives spoken alerts for ERP gantries, traffic, weather and fuel as you drive."}
         </Text>
       </View>
     </SafeAreaView>
