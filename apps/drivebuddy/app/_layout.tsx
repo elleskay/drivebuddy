@@ -35,26 +35,12 @@ function Gate() {
         contentStyle: { backgroundColor: "#0b1220" },
       }}
     >
-      <Stack.Screen
-        name="index"
-        options={{
-          title: "DriveBuddy",
-          headerRight: () => (
-            <Pressable onPress={() => router.push("/settings")} hitSlop={10}>
-              <Text style={{ color: "#4f8cff", fontSize: 14, fontWeight: "600" }}>Settings</Text>
-            </Pressable>
-          ),
-        }}
-      />
+      <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
       <Stack.Screen name="settings" options={{ title: "Settings" }} />
       <Stack.Screen name="login" options={{ headerShown: false }} />
       <Stack.Screen name="register" options={{ headerShown: false }} />
       <Stack.Screen name="profile" options={{ title: "Profile" }} />
       <Stack.Screen name="vehicles" options={{ title: "My Vehicles" }} />
-      <Stack.Screen name="dashboard" options={{ title: "Live Info" }} />
-      <Stack.Screen name="assistant" options={{ title: "AI Assistant" }} />
-      <Stack.Screen name="journey" options={{ title: "Journey" }} />
-      <Stack.Screen name="history" options={{ title: "Trip History" }} />
       <Stack.Screen name="recommendations" options={{ title: "Recommendations" }} />
       <Stack.Screen name="trip/[routeId]" options={{ title: "Trip Summary" }} />
       <Stack.Screen

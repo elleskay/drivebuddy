@@ -21,11 +21,9 @@ export default function HomeScreen() {
     }, []),
   );
 
-  // Secondary destinations laid out as a glanceable 2-column grid.
+  // Drive / Live Info / Assistant / History are in the bottom tab bar; the grid
+  // holds the remaining destinations.
   const tiles: { title: string; desc: string; route: string; badge?: number }[] = [
-    { title: "AI Assistant", desc: "Ask about ERP, traffic, fuel", route: "/assistant" },
-    { title: "Live Info", desc: "Weather, traffic, ERP, carparks", route: "/dashboard" },
-    { title: "Trip History", desc: "Past drives and summaries", route: "/history" },
     { title: "Recommendations", desc: "Insights from your drives", route: "/recommendations" },
     { title: "Notifications", desc: "Alerts and trip summaries", route: "/notifications", badge: unread },
     { title: "My Vehicles", desc: "Manage your vehicles", route: "/vehicles" },
