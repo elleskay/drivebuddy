@@ -56,10 +56,15 @@ One Expo app, one NestJS API, fully serverless on AWS. Roughly **$0 to $2 per mo
 DriveBuddy is a native app, so the web build is a UI tour: auth, home, the live dashboard, vehicles,
 history, recommendations, AI text chat, and profile all work in the browser against the deployed
 backend. The native-only parts (background GPS recording, push, microphone capture) show graceful
-"not available on web" behaviour. For the full experience, including a recorded drive with in-drive
-voice alerts, see [Key sequences](#key-sequences) and the in-drive screenshots above.
+"not available on web" behaviour. The web demo is built and published by the `deploy-web` workflow
+(Expo web export to GitHub Pages).
 
-The web demo is built and published by the `deploy-web` workflow (Expo web export to GitHub Pages).
+The one thing web cannot show is the native hero feature: Journey Mode recording a drive and firing an
+in-drive voice and banner alert as you approach an ERP gantry. Here it is on an Android device:
+
+<p align="center">
+  <img src="docs/demo/drive.gif" alt="Journey Mode: start a drive, the recording pulse, and an in-drive ERP gantry alert" width="280"/>
+</p>
 
 ---
 
