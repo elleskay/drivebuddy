@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { StyleSheet, Text, TextInput, View } from "react-native";
+import { Platform, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Link } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
@@ -66,6 +66,19 @@ export default function LoginScreen() {
 
         <Button label="Sign in" onPress={onSubmit} loading={busy} style={{ marginTop: spacing.sm }} />
 
+        {Platform.OS === "web" ? (
+          <Pressable
+            style={styles.demo}
+            onPress={() => {
+              setEmail("demo@drivebuddy.app");
+              setPassword("DriveBuddy123!");
+            }}
+          >
+            <Text style={styles.demoText}>Use the demo account</Text>
+            <Text style={styles.demoSub}>demo@drivebuddy.app · DriveBuddy123!</Text>
+          </Pressable>
+        ) : null}
+
         <Link href="/register" style={styles.linkRow}>
           <Text style={styles.linkMuted}>New here? </Text>
           <Text style={styles.link}>Create an account</Text>
@@ -102,6 +115,17 @@ const styles = StyleSheet.create({
     color: colors.text,
     fontSize: 16,
   },
+  demo: {
+    marginTop: 14,
+    alignItems: "center",
+    paddingVertical: 10,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
+  },
+  demoText: { color: colors.primary, fontWeight: "700", fontSize: 14 },
+  demoSub: { color: colors.textMuted, fontSize: 12, marginTop: 2 },
   linkRow: { marginTop: 18, textAlign: "center" },
   linkMuted: { color: colors.textMuted },
   link: { color: colors.primary, fontWeight: "700" },

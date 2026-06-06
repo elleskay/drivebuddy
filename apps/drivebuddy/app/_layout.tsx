@@ -1,10 +1,30 @@
 import { Stack, useRouter, useSegments } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useEffect } from "react";
-import { ActivityIndicator, Pressable, Text, View } from "react-native";
+import { ActivityIndicator, Platform, Pressable, StyleSheet, Text, View, type ViewStyle } from "react-native";
 import { AuthProvider, useAuth } from "@/lib/auth-context";
 // Registers the background location task (TaskManager.defineTask) at app start.
 import "@/lib/location-task";
+
+// On web the app is served full-window, which stretches the phone UI across the
+// whole browser. Constrain it to a centered phone-width column on a neutral page
+// so the web demo reads like the mobile app. No-op on native.
+function DeviceFrame({ children }: { children: React.ReactNode }) {
+  if (Platform.OS !== "web") return <>{children}</>;
+  return (
+    <View style={frame.page}>
+      <View style={[frame.column, webShadow]}>{children}</View>
+    </View>
+  );
+}
+
+// boxShadow is a valid react-native-web style but not in the RN types.
+const webShadow = { boxShadow: "0 0 48px rgba(15,23,42,0.14)" } as unknown as ViewStyle;
+
+const frame = StyleSheet.create({
+  page: { flex: 1, backgroundColor: "#dbe3ee", alignItems: "center" },
+  column: { flex: 1, width: "100%", maxWidth: 430, backgroundColor: "#f5f7fb" },
+});
 
 function Gate() {
   const { ready, signedIn } = useAuth();
@@ -63,7 +83,9 @@ export default function RootLayout() {
   return (
     <AuthProvider>
       <StatusBar style="dark" />
-      <Gate />
+      <DeviceFrame>
+        <Gate />
+      </DeviceFrame>
     </AuthProvider>
   );
 }
