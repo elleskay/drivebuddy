@@ -121,6 +121,34 @@ export default function JourneyScreen() {
         .then((tf) => (incidents.current = tf.data ?? []))
         .catch(() => (incidents.current = []));
 
+      // Start-of-drive advisories: a weather caution and a fuel-stop suggestion.
+      // (Petrol stations have no public coordinate feed, so the fuel alert is
+      // behaviour + price based rather than proximity based.)
+      Promise.all([
+        api.weather().catch(() => null),
+        api.petrol().catch(() => null),
+        api.insights().catch(() => null),
+      ])
+        .then(([weather, petrol, insights]) => {
+          const wet = weather?.data?.find((f) => /rain|shower|thunder/i.test(f.forecast));
+          if (wet) {
+            announce("weather", `Weather alert: ${wet.forecast.toLowerCase()} expected. Drive carefully and keep your distance.`);
+          }
+          if (insights && insights.recentDistanceKm >= 350 && petrol?.data?.length) {
+            const cheapest = [...petrol.data].sort((a, b) => a.price - b.price)[0]!;
+            // Stagger so it doesn't immediately overwrite the weather banner.
+            setTimeout(
+              () =>
+                announce(
+                  "fuel",
+                  `Fuel tip: you've driven about ${Math.round(insights.recentDistanceKm)} kilometres recently, so a refuel may be due. Cheapest 95 petrol is ${cheapest.brand} at $${cheapest.price.toFixed(2)} a litre.`,
+                ),
+              6000,
+            );
+          }
+        })
+        .catch(() => undefined);
+
       sub.current = await Location.watchPositionAsync(
         { accuracy: Location.Accuracy.High, distanceInterval: 10, timeInterval: 3000 },
         (loc) => {
@@ -145,7 +173,7 @@ export default function JourneyScreen() {
     } finally {
       setStarting(false);
     }
-  }, [flush, checkProximity]);
+  }, [flush, checkProximity, announce]);
 
   const stop = useCallback(async () => {
     setStopping(true);
