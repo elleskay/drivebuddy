@@ -40,7 +40,8 @@ export class ApiStack extends cdk.Stack {
         // The AI assistant's LLM runs on the Anthropic Claude API (not Bedrock):
         // just an API key, no AWS model-access/quota setup.
         ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY ?? "",
-        ANTHROPIC_MODEL: process.env.ANTHROPIC_MODEL ?? "claude-haiku-4-5",
+        // `||` so an unset GitHub Actions var (empty string) falls back to the default.
+        ANTHROPIC_MODEL: process.env.ANTHROPIC_MODEL || "claude-haiku-4-5",
       },
       // OpenSearch is off by default (a domain is not free). Turn on when you
       // need clustering of similar reports.

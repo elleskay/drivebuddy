@@ -22,7 +22,9 @@ export interface VoiceAnswer extends AiAnswer {
 // well-suited to short spoken answers; override via ANTHROPIC_MODEL.
 const ANTHROPIC_API_URL = "https://api.anthropic.com/v1/messages";
 const ANTHROPIC_VERSION = "2023-06-01";
-const ANTHROPIC_MODEL = process.env.ANTHROPIC_MODEL ?? "claude-haiku-4-5";
+// `||` not `??` so an empty-string env (e.g. an unset GitHub Actions var) falls
+// back to the default rather than sending an empty model id.
+const ANTHROPIC_MODEL = process.env.ANTHROPIC_MODEL || "claude-haiku-4-5";
 const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
 
 const SYSTEM_PROMPT =
