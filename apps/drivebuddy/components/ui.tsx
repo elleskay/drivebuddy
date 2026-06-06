@@ -1,5 +1,5 @@
 import { ActivityIndicator, Pressable, StyleSheet, Text, View, type ViewStyle } from "react-native";
-import { colors, radius, spacing, TOUCH_TARGET } from "@/lib/theme";
+import { colors, radius, shadow, spacing, TOUCH_TARGET } from "@/lib/theme";
 
 // Small, token-driven primitive set (variant API in the shadcn / react-native-
 // reusables spirit) so screens compose consistent UI without a heavy library or
@@ -99,6 +99,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderRadius: radius.lg,
     padding: spacing.lg,
+    ...shadow,
   },
   cardPrimary: { borderColor: colors.primary, backgroundColor: colors.primaryDim },
   btn: {
@@ -132,6 +133,7 @@ const styles = StyleSheet.create({
     borderRadius: radius.lg,
     padding: spacing.lg,
     gap: 4,
+    ...shadow,
   },
   navPrimary: { borderColor: colors.primary, backgroundColor: colors.primaryDim },
   navRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8 },

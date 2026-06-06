@@ -76,7 +76,7 @@ export default function DashboardScreen() {
     <SafeAreaView style={styles.container} edges={["bottom"]}>
       <ScrollView
         contentContainerStyle={styles.inner}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#4f8cff" />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#2563eb" />}
       >
         <View style={styles.refreshBar}>
           <Text style={styles.refreshLabel}>
@@ -172,35 +172,35 @@ function Muted({ children }: { children: React.ReactNode }) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#0b1220" },
-  center: { flex: 1, backgroundColor: "#0b1220", justifyContent: "center", alignItems: "center" },
+  container: { flex: 1, backgroundColor: "#f5f7fb" },
+  center: { flex: 1, backgroundColor: "#f5f7fb", justifyContent: "center", alignItems: "center" },
   inner: { padding: 16, gap: 12 },
   card: {
-    backgroundColor: "#131c2e",
-    borderColor: "#243049",
+    backgroundColor: "#ffffff",
+    borderColor: "#e4e9f2",
     borderWidth: 1,
     borderRadius: 14,
     padding: 16,
   },
-  cardTitle: { color: "#e7eefc", fontSize: 17, fontWeight: "800" },
-  cardSub: { color: "#5a6b8c", fontSize: 12, marginTop: 2, marginBottom: 8 },
+  cardTitle: { color: "#0f172a", fontSize: 17, fontWeight: "800" },
+  cardSub: { color: "#94a3b8", fontSize: 12, marginTop: 2, marginBottom: 8 },
   cardBody: { gap: 6 },
   rowItem: { flexDirection: "row", justifyContent: "space-between", gap: 12 },
-  rowLeft: { color: "#9fb0d0", fontSize: 14, flexShrink: 1 },
-  rowRight: { color: "#e7eefc", fontSize: 14, fontWeight: "600", textAlign: "right", flexShrink: 1 },
-  muted: { color: "#5a6b8c", fontSize: 13, fontStyle: "italic" },
+  rowLeft: { color: "#5b6b86", fontSize: 14, flexShrink: 1 },
+  rowRight: { color: "#0f172a", fontSize: 14, fontWeight: "600", textAlign: "right", flexShrink: 1 },
+  muted: { color: "#94a3b8", fontSize: 13, fontStyle: "italic" },
   refreshBar: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8 },
-  refreshLabel: { color: "#5a6b8c", fontSize: 12, flexShrink: 1 },
+  refreshLabel: { color: "#94a3b8", fontSize: 12, flexShrink: 1 },
   chips: { flexDirection: "row", gap: 6 },
   chip: {
     paddingHorizontal: 10,
     paddingVertical: 5,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: "#243049",
-    backgroundColor: "#131c2e",
+    borderColor: "#e4e9f2",
+    backgroundColor: "#ffffff",
   },
-  chipActive: { backgroundColor: "#4f8cff", borderColor: "#4f8cff" },
-  chipText: { color: "#9fb0d0", fontSize: 12, fontWeight: "700" },
+  chipActive: { backgroundColor: "#2563eb", borderColor: "#2563eb" },
+  chipText: { color: "#5b6b86", fontSize: 12, fontWeight: "700" },
   chipTextActive: { color: "#fff" },
 });

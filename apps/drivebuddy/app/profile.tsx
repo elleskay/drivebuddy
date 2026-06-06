@@ -62,7 +62,7 @@ export default function ProfileScreen() {
           <Text style={styles.readonly}>{email}</Text>
         </Field>
         <Field label="Full name">
-          <TextInput style={styles.input} value={fullName} onChangeText={setFullName} placeholderTextColor="#6b7a99" />
+          <TextInput style={styles.input} value={fullName} onChangeText={setFullName} placeholderTextColor="#94a3b8" />
         </Field>
         <Field label="Gender">
           <TextInput
@@ -70,7 +70,7 @@ export default function ProfileScreen() {
             value={gender}
             onChangeText={setGender}
             placeholder="e.g. Male / Female / Other"
-            placeholderTextColor="#6b7a99"
+            placeholderTextColor="#94a3b8"
           />
         </Field>
         <Field label="Date of birth (YYYY-MM-DD)">
@@ -79,7 +79,7 @@ export default function ProfileScreen() {
             value={dateOfBirth}
             onChangeText={setDateOfBirth}
             placeholder="1995-06-15"
-            placeholderTextColor="#6b7a99"
+            placeholderTextColor="#94a3b8"
             autoCapitalize="none"
           />
         </Field>
@@ -89,7 +89,7 @@ export default function ProfileScreen() {
             value={homeAddress}
             onChangeText={setHomeAddress}
             multiline
-            placeholderTextColor="#6b7a99"
+            placeholderTextColor="#94a3b8"
           />
         </Field>
 
@@ -113,23 +113,23 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#0b1220" },
-  center: { flex: 1, backgroundColor: "#0b1220", justifyContent: "center", alignItems: "center" },
+  container: { flex: 1, backgroundColor: "#f5f7fb" },
+  center: { flex: 1, backgroundColor: "#f5f7fb", justifyContent: "center", alignItems: "center" },
   inner: { padding: 20, gap: 14 },
   field: { gap: 6 },
-  label: { color: "#9fb0d0", fontSize: 13, fontWeight: "600" },
+  label: { color: "#5b6b86", fontSize: 13, fontWeight: "600" },
   input: {
-    backgroundColor: "#131c2e",
-    borderColor: "#243049",
+    backgroundColor: "#ffffff",
+    borderColor: "#e4e9f2",
     borderWidth: 1,
     borderRadius: 12,
     paddingHorizontal: 14,
     paddingVertical: 12,
-    color: "#e7eefc",
+    color: "#0f172a",
     fontSize: 16,
   },
-  readonly: { color: "#9fb0d0", fontSize: 16, paddingVertical: 12 },
-  button: { backgroundColor: "#4f8cff", borderRadius: 12, paddingVertical: 15, alignItems: "center", marginTop: 8 },
+  readonly: { color: "#5b6b86", fontSize: 16, paddingVertical: 12 },
+  button: { backgroundColor: "#2563eb", borderRadius: 12, paddingVertical: 15, alignItems: "center", marginTop: 8 },
   buttonText: { color: "#fff", fontSize: 16, fontWeight: "700" },
-  msg: { color: "#7ee0a2", textAlign: "center" },
+  msg: { color: "#16a34a", textAlign: "center" },
 });

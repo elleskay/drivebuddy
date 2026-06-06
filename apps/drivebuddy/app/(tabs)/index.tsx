@@ -74,6 +74,6 @@ const styles = StyleSheet.create({
   grid: { flexDirection: "row", flexWrap: "wrap", gap: spacing.md },
   tile: { width: "47.5%", flexGrow: 1 },
   signOut: { alignItems: "center", paddingVertical: 14, marginTop: spacing.sm },
-  signOutText: { color: "#ff6b6b", fontSize: 15, fontWeight: "600" },
+  signOutText: { color: "#dc2626", fontSize: 15, fontWeight: "600" },
   tagline: { color: colors.textDim, fontSize: 13, textAlign: "center", paddingBottom: spacing.sm },
 });

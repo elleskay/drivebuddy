@@ -198,7 +198,7 @@ export default function AssistantScreen() {
         />
         {busy ? (
           <View style={styles.thinking}>
-            <ActivityIndicator color="#4f8cff" />
+            <ActivityIndicator color="#2563eb" />
             <Text style={styles.thinkingText}>Thinking…</Text>
           </View>
         ) : null}
@@ -223,7 +223,7 @@ export default function AssistantScreen() {
             value={input}
             onChangeText={setInput}
             placeholder={recording ? "Listening…" : "Ask DriveBuddy…"}
-            placeholderTextColor="#5a6b8c"
+            placeholderTextColor="#94a3b8"
             editable={!recording}
             onSubmitEditing={() => send(input)}
             returnKeyType="send"
@@ -238,15 +238,15 @@ export default function AssistantScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#0b1220" },
+  container: { flex: 1, backgroundColor: "#f5f7fb" },
   list: { padding: 16, gap: 10 },
   bubble: { maxWidth: "85%", borderRadius: 16, paddingVertical: 10, paddingHorizontal: 14 },
-  user: { alignSelf: "flex-end", backgroundColor: "#4f8cff" },
-  assistant: { alignSelf: "flex-start", backgroundColor: "#131c2e", borderColor: "#243049", borderWidth: 1 },
+  user: { alignSelf: "flex-end", backgroundColor: "#2563eb" },
+  assistant: { alignSelf: "flex-start", backgroundColor: "#ffffff", borderColor: "#e4e9f2", borderWidth: 1 },
   userText: { color: "#fff", fontSize: 15 },
-  assistantText: { color: "#e7eefc", fontSize: 15 },
+  assistantText: { color: "#0f172a", fontSize: 15 },
   thinking: { flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: 18, paddingBottom: 6 },
-  thinkingText: { color: "#9fb0d0", fontSize: 13 },
+  thinkingText: { color: "#5b6b86", fontSize: 13 },
   handsFree: {
     alignSelf: "center",
     marginBottom: 6,
@@ -254,44 +254,44 @@ const styles = StyleSheet.create({
     paddingVertical: 7,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: "#243049",
-    backgroundColor: "#131c2e",
+    borderColor: "#e4e9f2",
+    backgroundColor: "#ffffff",
   },
-  handsFreeOn: { backgroundColor: "#16223a", borderColor: "#4f8cff" },
-  handsFreeText: { color: "#9fb0d0", fontSize: 12, fontWeight: "700" },
-  handsFreeTextOn: { color: "#4f8cff" },
+  handsFreeOn: { backgroundColor: "#e8f0ff", borderColor: "#2563eb" },
+  handsFreeText: { color: "#5b6b86", fontSize: 12, fontWeight: "700" },
+  handsFreeTextOn: { color: "#2563eb" },
   inputBar: {
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
     padding: 12,
-    borderTopColor: "#243049",
+    borderTopColor: "#e4e9f2",
     borderTopWidth: 1,
-    backgroundColor: "#0b1220",
+    backgroundColor: "#f5f7fb",
   },
   mic: {
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: "#131c2e",
-    borderColor: "#243049",
+    backgroundColor: "#ffffff",
+    borderColor: "#e4e9f2",
     borderWidth: 1,
     alignItems: "center",
     justifyContent: "center",
   },
-  micActive: { backgroundColor: "#e5484d", borderColor: "#e5484d" },
-  micIcon: { fontSize: 13, fontWeight: "700", color: "#e7eefc" },
+  micActive: { backgroundColor: "#dc2626", borderColor: "#dc2626" },
+  micIcon: { fontSize: 13, fontWeight: "700", color: "#0f172a" },
   input: {
     flex: 1,
-    backgroundColor: "#131c2e",
-    borderColor: "#243049",
+    backgroundColor: "#ffffff",
+    borderColor: "#e4e9f2",
     borderWidth: 1,
     borderRadius: 22,
     paddingHorizontal: 16,
     paddingVertical: 10,
-    color: "#e7eefc",
+    color: "#0f172a",
     fontSize: 15,
   },
-  sendBtn: { backgroundColor: "#4f8cff", borderRadius: 22, paddingHorizontal: 16, paddingVertical: 11 },
+  sendBtn: { backgroundColor: "#2563eb", borderRadius: 22, paddingHorizontal: 16, paddingVertical: 11 },
   sendText: { color: "#fff", fontWeight: "800", fontSize: 14 },
 });

@@ -57,7 +57,7 @@ export default function RecommendationsScreen() {
               setRefreshing(true);
               void load(true);
             }}
-            tintColor="#4f8cff"
+            tintColor="#2563eb"
           />
         }
         ListHeaderComponent={insights ? <InsightsHeader insights={insights} /> : null}
@@ -117,35 +117,35 @@ function formatHour(h: number): string {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#0b1220" },
-  center: { flex: 1, backgroundColor: "#0b1220", justifyContent: "center", alignItems: "center" },
+  container: { flex: 1, backgroundColor: "#f5f7fb" },
+  center: { flex: 1, backgroundColor: "#f5f7fb", justifyContent: "center", alignItems: "center" },
   list: { padding: 16, gap: 10 },
   headerWrap: { gap: 10, marginBottom: 4 },
-  section: { color: "#9fb0d0", fontSize: 13, fontWeight: "700", marginTop: 6, marginLeft: 4 },
+  section: { color: "#5b6b86", fontSize: 13, fontWeight: "700", marginTop: 6, marginLeft: 4 },
   statsGrid: { flexDirection: "row", gap: 10 },
   stat: {
     flex: 1,
-    backgroundColor: "#131c2e",
-    borderColor: "#243049",
+    backgroundColor: "#ffffff",
+    borderColor: "#e4e9f2",
     borderWidth: 1,
     borderRadius: 12,
     padding: 12,
     alignItems: "center",
   },
-  statValue: { color: "#e7eefc", fontSize: 18, fontWeight: "800" },
-  statLabel: { color: "#9fb0d0", fontSize: 11, marginTop: 3 },
-  empty: { color: "#9fb0d0", textAlign: "center", marginTop: 16, paddingHorizontal: 12, lineHeight: 20 },
+  statValue: { color: "#0f172a", fontSize: 18, fontWeight: "800" },
+  statLabel: { color: "#5b6b86", fontSize: 11, marginTop: 3 },
+  empty: { color: "#5b6b86", textAlign: "center", marginTop: 16, paddingHorizontal: 12, lineHeight: 20 },
   card: {
     flexDirection: "row",
     gap: 12,
-    backgroundColor: "#131c2e",
-    borderColor: "#243049",
+    backgroundColor: "#ffffff",
+    borderColor: "#e4e9f2",
     borderWidth: 1,
     borderRadius: 14,
     padding: 16,
   },
   cardIcon: { fontSize: 22 },
-  cardTitle: { color: "#e7eefc", fontSize: 15, fontWeight: "700" },
-  cardBody: { color: "#9fb0d0", fontSize: 13, marginTop: 3, lineHeight: 19 },
-  dismiss: { color: "#5a6b8c", fontSize: 18, fontWeight: "700" },
+  cardTitle: { color: "#0f172a", fontSize: 15, fontWeight: "700" },
+  cardBody: { color: "#5b6b86", fontSize: 13, marginTop: 3, lineHeight: 19 },
+  dismiss: { color: "#94a3b8", fontSize: 18, fontWeight: "700" },
 });

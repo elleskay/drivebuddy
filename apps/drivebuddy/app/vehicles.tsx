@@ -148,7 +148,7 @@ export default function VehiclesScreen() {
             <TextInput
               style={styles.input}
               placeholder="Plate number (e.g. SGP1234A)"
-              placeholderTextColor="#6b7a99"
+              placeholderTextColor="#94a3b8"
               autoCapitalize="characters"
               value={number}
               onChangeText={setNumber}
@@ -167,7 +167,7 @@ export default function VehiclesScreen() {
             <TextInput
               style={styles.input}
               placeholder="Fuel consumption (L or kWh / 100km)"
-              placeholderTextColor="#6b7a99"
+              placeholderTextColor="#94a3b8"
               keyboardType="decimal-pad"
               value={consumption}
               onChangeText={setConsumption}
@@ -192,25 +192,25 @@ export default function VehiclesScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#0b1220" },
-  center: { flex: 1, backgroundColor: "#0b1220", justifyContent: "center", alignItems: "center" },
+  container: { flex: 1, backgroundColor: "#f5f7fb" },
+  center: { flex: 1, backgroundColor: "#f5f7fb", justifyContent: "center", alignItems: "center" },
   list: { padding: 16, gap: 12 },
-  empty: { color: "#9fb0d0", textAlign: "center", marginVertical: 16 },
+  empty: { color: "#5b6b86", textAlign: "center", marginVertical: 16 },
   vehicle: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#131c2e",
-    borderColor: "#243049",
+    backgroundColor: "#ffffff",
+    borderColor: "#e4e9f2",
     borderWidth: 1,
     borderRadius: 14,
     padding: 16,
     gap: 10,
   },
   row: { flexDirection: "row", alignItems: "center", gap: 8 },
-  plate: { color: "#e7eefc", fontSize: 18, fontWeight: "800", letterSpacing: 1 },
+  plate: { color: "#0f172a", fontSize: 18, fontWeight: "800", letterSpacing: 1 },
   mainBadge: {
-    color: "#0b1220",
-    backgroundColor: "#7ee0a2",
+    color: "#f5f7fb",
+    backgroundColor: "#16a34a",
     fontSize: 10,
     fontWeight: "800",
     paddingHorizontal: 6,
@@ -218,29 +218,29 @@ const styles = StyleSheet.create({
     borderRadius: 4,
     overflow: "hidden",
   },
-  meta: { color: "#9fb0d0", fontSize: 13, marginTop: 4 },
-  smallBtn: { backgroundColor: "#1c2740", borderRadius: 8, paddingHorizontal: 10, paddingVertical: 8 },
-  smallBtnText: { color: "#4f8cff", fontSize: 12, fontWeight: "700" },
+  meta: { color: "#5b6b86", fontSize: 13, marginTop: 4 },
+  smallBtn: { backgroundColor: "#e8f0ff", borderRadius: 8, paddingHorizontal: 10, paddingVertical: 8 },
+  smallBtnText: { color: "#2563eb", fontSize: 12, fontWeight: "700" },
   deleteBtn: { padding: 6 },
-  deleteText: { color: "#ff6b6b", fontSize: 16, fontWeight: "700" },
+  deleteText: { color: "#dc2626", fontSize: 16, fontWeight: "700" },
   addCard: {
-    backgroundColor: "#101a2c",
-    borderColor: "#243049",
+    backgroundColor: "#eef2f9",
+    borderColor: "#e4e9f2",
     borderWidth: 1,
     borderRadius: 14,
     padding: 16,
     gap: 10,
     marginTop: 8,
   },
-  addTitle: { color: "#e7eefc", fontSize: 16, fontWeight: "700" },
+  addTitle: { color: "#0f172a", fontSize: 16, fontWeight: "700" },
   input: {
-    backgroundColor: "#131c2e",
-    borderColor: "#243049",
+    backgroundColor: "#ffffff",
+    borderColor: "#e4e9f2",
     borderWidth: 1,
     borderRadius: 12,
     paddingHorizontal: 14,
     paddingVertical: 12,
-    color: "#e7eefc",
+    color: "#0f172a",
     fontSize: 16,
   },
   fuelRow: { flexDirection: "row", gap: 8 },
@@ -250,15 +250,15 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: "#243049",
-    backgroundColor: "#131c2e",
+    borderColor: "#e4e9f2",
+    backgroundColor: "#ffffff",
   },
-  fuelChipActive: { backgroundColor: "#4f8cff", borderColor: "#4f8cff" },
-  fuelChipText: { color: "#9fb0d0", fontWeight: "700", fontSize: 13 },
+  fuelChipActive: { backgroundColor: "#2563eb", borderColor: "#2563eb" },
+  fuelChipText: { color: "#5b6b86", fontWeight: "700", fontSize: 13 },
   fuelChipTextActive: { color: "#fff" },
-  button: { backgroundColor: "#4f8cff", borderRadius: 12, paddingVertical: 14, alignItems: "center", marginTop: 4 },
+  button: { backgroundColor: "#2563eb", borderRadius: 12, paddingVertical: 14, alignItems: "center", marginTop: 4 },
   buttonText: { color: "#fff", fontSize: 16, fontWeight: "700" },
   cancelBtn: { alignItems: "center", paddingVertical: 8 },
-  cancelText: { color: "#9fb0d0", fontSize: 14, fontWeight: "600" },
-  error: { color: "#ff6b6b" },
+  cancelText: { color: "#5b6b86", fontSize: 14, fontWeight: "600" },
+  error: { color: "#dc2626" },
 });

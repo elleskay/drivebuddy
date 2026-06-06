@@ -119,23 +119,23 @@ function Row({
         value={value}
         onValueChange={onChange}
         disabled={disabled}
-        trackColor={{ false: "#243049", true: "#4f8cff" }}
-        thumbColor="#e7eefc"
+        trackColor={{ false: "#e4e9f2", true: "#2563eb" }}
+        thumbColor="#0f172a"
       />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#0b1220" },
-  center: { flex: 1, backgroundColor: "#0b1220", justifyContent: "center", alignItems: "center" },
+  container: { flex: 1, backgroundColor: "#f5f7fb" },
+  center: { flex: 1, backgroundColor: "#f5f7fb", justifyContent: "center", alignItems: "center" },
   inner: { padding: 16, gap: 8 },
-  section: { color: "#9fb0d0", fontSize: 13, fontWeight: "700", marginTop: 12, marginBottom: 6, marginLeft: 4 },
-  card: { backgroundColor: "#131c2e", borderColor: "#243049", borderWidth: 1, borderRadius: 14, paddingHorizontal: 16 },
+  section: { color: "#5b6b86", fontSize: 13, fontWeight: "700", marginTop: 12, marginBottom: 6, marginLeft: 4 },
+  card: { backgroundColor: "#ffffff", borderColor: "#e4e9f2", borderWidth: 1, borderRadius: 14, paddingHorizontal: 16 },
   disabled: { opacity: 0.5 },
   row: { flexDirection: "row", alignItems: "center", paddingVertical: 14 },
-  rowBorder: { borderBottomColor: "#243049", borderBottomWidth: 1 },
-  rowLabel: { color: "#e7eefc", fontSize: 15, fontWeight: "600" },
-  rowDesc: { color: "#9fb0d0", fontSize: 12, marginTop: 2 },
-  note: { color: "#5a6b8c", fontSize: 12, marginLeft: 4, marginTop: 4 },
+  rowBorder: { borderBottomColor: "#e4e9f2", borderBottomWidth: 1 },
+  rowLabel: { color: "#0f172a", fontSize: 15, fontWeight: "600" },
+  rowDesc: { color: "#5b6b86", fontSize: 12, marginTop: 2 },
+  note: { color: "#94a3b8", fontSize: 12, marginLeft: 4, marginTop: 4 },
 });

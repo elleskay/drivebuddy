@@ -35,7 +35,7 @@ export default function LoginScreen() {
         <TextInput
           style={styles.input}
           placeholder="Email"
-          placeholderTextColor="#6b7a99"
+          placeholderTextColor="#94a3b8"
           autoCapitalize="none"
           keyboardType="email-address"
           value={email}
@@ -44,7 +44,7 @@ export default function LoginScreen() {
         <TextInput
           style={styles.input}
           placeholder="Password"
-          placeholderTextColor="#6b7a99"
+          placeholderTextColor="#94a3b8"
           secureTextEntry
           value={password}
           onChangeText={setPassword}
@@ -64,25 +64,25 @@ export default function LoginScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#0b1220" },
+  container: { flex: 1, backgroundColor: "#f5f7fb" },
   inner: { flex: 1, justifyContent: "center", paddingHorizontal: 24, gap: 12 },
-  brand: { color: "#4f8cff", fontSize: 34, fontWeight: "800", textAlign: "center" },
-  subtitle: { color: "#9fb0d0", fontSize: 16, textAlign: "center", marginBottom: 12 },
+  brand: { color: "#2563eb", fontSize: 34, fontWeight: "800", textAlign: "center" },
+  subtitle: { color: "#5b6b86", fontSize: 16, textAlign: "center", marginBottom: 12 },
   input: {
-    backgroundColor: "#131c2e",
-    borderColor: "#243049",
+    backgroundColor: "#ffffff",
+    borderColor: "#e4e9f2",
     borderWidth: 1,
     borderRadius: 12,
     paddingHorizontal: 16,
     paddingVertical: 14,
-    color: "#e7eefc",
+    color: "#0f172a",
     fontSize: 16,
   },
-  button: { backgroundColor: "#4f8cff", borderRadius: 12, paddingVertical: 15, alignItems: "center", marginTop: 6 },
+  button: { backgroundColor: "#2563eb", borderRadius: 12, paddingVertical: 15, alignItems: "center", marginTop: 6 },
   buttonDisabled: { opacity: 0.6 },
   buttonText: { color: "#fff", fontSize: 16, fontWeight: "700" },
   linkRow: { marginTop: 18, textAlign: "center" },
-  linkMuted: { color: "#9fb0d0" },
-  link: { color: "#4f8cff", fontWeight: "700" },
-  error: { color: "#ff6b6b", textAlign: "center" },
+  linkMuted: { color: "#5b6b86" },
+  link: { color: "#2563eb", fontWeight: "700" },
+  error: { color: "#dc2626", textAlign: "center" },
 });

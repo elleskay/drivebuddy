@@ -150,9 +150,9 @@ function RouteMap({ points }: { points: { latitude: number; longitude: number }[
       ))}
       <Svg width={W} height={H} style={StyleSheet.absoluteFill}>
         <Polyline points={polyline} fill="none" stroke="#1d4ed8" strokeOpacity={0.35} strokeWidth={8} strokeLinejoin="round" strokeLinecap="round" />
-        <Polyline points={polyline} fill="none" stroke="#4f8cff" strokeWidth={5} strokeLinejoin="round" strokeLinecap="round" />
+        <Polyline points={polyline} fill="none" stroke="#2563eb" strokeWidth={5} strokeLinejoin="round" strokeLinecap="round" />
         <Circle cx={start.x} cy={start.y} r={7} fill="#22c55e" stroke="#fff" strokeWidth={2} />
-        <Circle cx={end.x} cy={end.y} r={7} fill="#e5484d" stroke="#fff" strokeWidth={2} />
+        <Circle cx={end.x} cy={end.y} r={7} fill="#dc2626" stroke="#fff" strokeWidth={2} />
       </Svg>
       <Text style={styles.mapTag}>© OpenStreetMap</Text>
     </View>
@@ -180,45 +180,45 @@ function CostRow({ label, value, bold }: { label: string; value: number; bold?: 
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#0b1220" },
-  center: { flex: 1, backgroundColor: "#0b1220", justifyContent: "center", alignItems: "center" },
+  container: { flex: 1, backgroundColor: "#f5f7fb" },
+  center: { flex: 1, backgroundColor: "#f5f7fb", justifyContent: "center", alignItems: "center" },
   inner: { padding: 16, gap: 14 },
   map: {
-    backgroundColor: "#101a2c",
-    borderColor: "#243049",
+    backgroundColor: "#eef2f9",
+    borderColor: "#e4e9f2",
     borderWidth: 1,
     borderRadius: 14,
     overflow: "hidden",
     alignSelf: "center",
   },
-  muted: { color: "#5a6b8c", fontSize: 13 },
-  mapTag: { position: "absolute", bottom: 8, left: 12, color: "#5a6b8c", fontSize: 11 },
+  muted: { color: "#94a3b8", fontSize: 13 },
+  mapTag: { position: "absolute", bottom: 8, left: 12, color: "#94a3b8", fontSize: 11 },
   statsRow: { flexDirection: "row", gap: 10 },
   stat: {
     flex: 1,
-    backgroundColor: "#131c2e",
-    borderColor: "#243049",
+    backgroundColor: "#ffffff",
+    borderColor: "#e4e9f2",
     borderWidth: 1,
     borderRadius: 12,
     padding: 12,
     alignItems: "center",
   },
-  statValue: { color: "#e7eefc", fontSize: 18, fontWeight: "800" },
-  statUnit: { color: "#9fb0d0", fontSize: 11, fontWeight: "600" },
-  statLabel: { color: "#9fb0d0", fontSize: 11, marginTop: 3 },
+  statValue: { color: "#0f172a", fontSize: 18, fontWeight: "800" },
+  statUnit: { color: "#5b6b86", fontSize: 11, fontWeight: "600" },
+  statLabel: { color: "#5b6b86", fontSize: 11, marginTop: 3 },
   card: {
-    backgroundColor: "#131c2e",
-    borderColor: "#243049",
+    backgroundColor: "#ffffff",
+    borderColor: "#e4e9f2",
     borderWidth: 1,
     borderRadius: 14,
     padding: 16,
     gap: 8,
   },
-  cardTitle: { color: "#e7eefc", fontSize: 16, fontWeight: "800", marginBottom: 4 },
+  cardTitle: { color: "#0f172a", fontSize: 16, fontWeight: "800", marginBottom: 4 },
   costRow: { flexDirection: "row", justifyContent: "space-between" },
-  costLabel: { color: "#9fb0d0", fontSize: 15 },
-  costValue: { color: "#e7eefc", fontSize: 15, fontWeight: "600" },
-  bold: { color: "#e7eefc", fontWeight: "800", fontSize: 16 },
-  divider: { height: 1, backgroundColor: "#243049", marginVertical: 4 },
-  note: { color: "#5a6b8c", fontSize: 12, textAlign: "center" },
+  costLabel: { color: "#5b6b86", fontSize: 15 },
+  costValue: { color: "#0f172a", fontSize: 15, fontWeight: "600" },
+  bold: { color: "#0f172a", fontWeight: "800", fontSize: 16 },
+  divider: { height: 1, backgroundColor: "#e4e9f2", marginVertical: 4 },
+  note: { color: "#94a3b8", fontSize: 12, textAlign: "center" },
 });

@@ -77,7 +77,7 @@ export default function NotificationsScreen() {
               setRefreshing(true);
               void load();
             }}
-            tintColor="#4f8cff"
+            tintColor="#2563eb"
           />
         }
         ListEmptyComponent={<Text style={styles.empty}>No notifications yet.</Text>}
@@ -106,8 +106,8 @@ function formatTime(iso: string): string {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#0b1220" },
-  center: { flex: 1, backgroundColor: "#0b1220", justifyContent: "center", alignItems: "center" },
+  container: { flex: 1, backgroundColor: "#f5f7fb" },
+  center: { flex: 1, backgroundColor: "#f5f7fb", justifyContent: "center", alignItems: "center" },
   toolbar: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -115,23 +115,23 @@ const styles = StyleSheet.create({
     paddingTop: 12,
     paddingBottom: 4,
   },
-  toolbarLink: { color: "#4f8cff", fontSize: 14, fontWeight: "600" },
+  toolbarLink: { color: "#2563eb", fontSize: 14, fontWeight: "600" },
   list: { padding: 16, gap: 10 },
-  empty: { color: "#9fb0d0", textAlign: "center", marginTop: 24 },
+  empty: { color: "#5b6b86", textAlign: "center", marginTop: 24 },
   row: {
     flexDirection: "row",
     alignItems: "center",
     gap: 12,
-    backgroundColor: "#131c2e",
-    borderColor: "#243049",
+    backgroundColor: "#ffffff",
+    borderColor: "#e4e9f2",
     borderWidth: 1,
     borderRadius: 14,
     padding: 16,
   },
-  unread: { borderColor: "#4f8cff", backgroundColor: "#16223a" },
+  unread: { borderColor: "#2563eb", backgroundColor: "#e8f0ff" },
   icon: { fontSize: 22 },
-  title: { color: "#e7eefc", fontSize: 15, fontWeight: "700" },
-  body: { color: "#9fb0d0", fontSize: 13, marginTop: 2 },
-  time: { color: "#5a6b8c", fontSize: 11, marginTop: 4 },
-  dot: { width: 10, height: 10, borderRadius: 5, backgroundColor: "#4f8cff" },
+  title: { color: "#0f172a", fontSize: 15, fontWeight: "700" },
+  body: { color: "#5b6b86", fontSize: 13, marginTop: 2 },
+  time: { color: "#94a3b8", fontSize: 11, marginTop: 4 },
+  dot: { width: 10, height: 10, borderRadius: 5, backgroundColor: "#2563eb" },
 });

@@ -20,8 +20,8 @@ function Gate() {
 
   if (!ready) {
     return (
-      <View style={{ flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: "#0b1220" }}>
-        <ActivityIndicator color="#4f8cff" size="large" />
+      <View style={{ flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: "#f5f7fb" }}>
+        <ActivityIndicator color="#2563eb" size="large" />
       </View>
     );
   }
@@ -29,10 +29,10 @@ function Gate() {
   return (
     <Stack
       screenOptions={{
-        headerStyle: { backgroundColor: "#0b1220" },
-        headerTintColor: "#e7eefc",
+        headerStyle: { backgroundColor: "#f5f7fb" },
+        headerTintColor: "#0f172a",
         headerTitle: "DriveBuddy",
-        contentStyle: { backgroundColor: "#0b1220" },
+        contentStyle: { backgroundColor: "#f5f7fb" },
       }}
     >
       <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
@@ -49,7 +49,7 @@ function Gate() {
           title: "Notifications",
           headerRight: () => (
             <Pressable onPress={() => router.push("/notification-settings")} hitSlop={10}>
-              <Text style={{ color: "#4f8cff", fontSize: 14, fontWeight: "600" }}>Settings</Text>
+              <Text style={{ color: "#2563eb", fontSize: 14, fontWeight: "600" }}>Settings</Text>
             </Pressable>
           ),
         }}
@@ -62,7 +62,7 @@ function Gate() {
 export default function RootLayout() {
   return (
     <AuthProvider>
-      <StatusBar style="light" />
+      <StatusBar style="dark" />
       <Gate />
     </AuthProvider>
   );

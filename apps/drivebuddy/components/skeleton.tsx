@@ -1,10 +1,10 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Animated, StyleSheet, View, type DimensionValue, type ViewStyle } from "react-native";
-import { colors, radius, spacing } from "@/lib/theme";
+import { colors, radius, shadow, spacing } from "@/lib/theme";
 
-// Zero-dependency skeleton loaders (RN's built-in Animated only - no Reanimated,
-// no linear-gradient, no native rebuild). A gentle opacity pulse stands in for a
-// shimmer while data loads, which reads far better than a blank spinner.
+// Zero-dependency skeleton loaders with a real sweeping sheen (RN Animated only -
+// no Reanimated, no linear-gradient). A light highlight bar translates across a
+// muted base, which reads far better than a flat opacity pulse.
 
 export function Skeleton({
   width = "100%",
@@ -17,21 +17,36 @@ export function Skeleton({
   radius?: number;
   style?: ViewStyle;
 }) {
-  const opacity = useRef(new Animated.Value(0.5)).current;
+  const x = useRef(new Animated.Value(0)).current;
+  const [w, setW] = useState(0);
+
   useEffect(() => {
     const loop = Animated.loop(
-      Animated.sequence([
-        Animated.timing(opacity, { toValue: 1, duration: 700, useNativeDriver: true }),
-        Animated.timing(opacity, { toValue: 0.5, duration: 700, useNativeDriver: true }),
-      ]),
+      Animated.timing(x, { toValue: 1, duration: 1200, useNativeDriver: true }),
     );
     loop.start();
     return () => loop.stop();
-  }, [opacity]);
+  }, [x]);
+
   return (
-    <Animated.View
-      style={[{ width, height, borderRadius: r, backgroundColor: colors.skeleton, opacity }, style]}
-    />
+    <View
+      onLayout={(e) => setW(e.nativeEvent.layout.width)}
+      style={[{ width, height, borderRadius: r, backgroundColor: colors.skeleton, overflow: "hidden" }, style]}
+    >
+      {w > 0 ? (
+        <Animated.View
+          style={{
+            position: "absolute",
+            top: 0,
+            bottom: 0,
+            width: w * 0.5,
+            backgroundColor: colors.skeletonHighlight,
+            opacity: 0.85,
+            transform: [{ translateX: x.interpolate({ inputRange: [0, 1], outputRange: [-w * 0.6, w * 1.1] }) }],
+          }}
+        />
+      ) : null}
+    </View>
   );
 }
 
@@ -65,5 +80,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderRadius: radius.lg,
     padding: spacing.lg,
+    ...shadow,
   },
 });
