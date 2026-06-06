@@ -1,11 +1,15 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
+import { Animated, Easing, Pressable, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { LinearGradient } from "expo-linear-gradient";
+import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import * as Location from "expo-location";
 import * as Speech from "expo-speech";
 import { api, type ErpGantry, type GpsSample, type TrafficItem } from "@/lib/api";
 import { LOCATION_TASK, setActiveRouteId } from "@/lib/location-task";
+import { Button } from "@/components/ui";
+import { colors, gradients, shadow } from "@/lib/theme";
 
 // In-drive alert tuning.
 const GANTRY_RADIUS_KM = 0.35; // announce an ERP gantry within ~350m
@@ -47,6 +51,24 @@ export default function JourneyScreen() {
   const announced = useRef<Set<string>>(new Set());
   const mutedRef = useRef(false);
   const alertTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Breathing pulse animation for the recording ring.
+  const pulse = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    if (!tracking) {
+      pulse.stopAnimation();
+      pulse.setValue(0);
+      return;
+    }
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulse, { toValue: 1, duration: 1100, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
+        Animated.timing(pulse, { toValue: 0, duration: 1100, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
+      ]),
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [tracking, pulse]);
 
   useEffect(() => {
     mutedRef.current = muted;
@@ -265,6 +287,7 @@ export default function JourneyScreen() {
 
         {alert ? (
           <View style={styles.alertBanner}>
+            <Ionicons name="alert-circle" size={20} color="#92400e" />
             <Text style={styles.alertText}>{alert}</Text>
           </View>
         ) : null}
@@ -275,25 +298,53 @@ export default function JourneyScreen() {
         </View>
 
         <View style={styles.pulseWrap}>
-          <View style={[styles.pulse, tracking && styles.pulseActive]}>
-            <Text style={styles.pulseText}>{tracking ? "Recording" : "Ready"}</Text>
-          </View>
+          {tracking ? (
+            <Animated.View
+              pointerEvents="none"
+              style={[
+                styles.pulseGlow,
+                {
+                  opacity: pulse.interpolate({ inputRange: [0, 1], outputRange: [0.35, 0] }),
+                  transform: [{ scale: pulse.interpolate({ inputRange: [0, 1], outputRange: [1, 1.45] }) }],
+                },
+              ]}
+            />
+          ) : null}
+          {tracking ? (
+            <LinearGradient
+              colors={gradients.primary as unknown as string[]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.pulse}
+            >
+              <Ionicons name="radio" size={30} color="#fff" />
+              <Text style={styles.pulseTextOn}>Recording</Text>
+            </LinearGradient>
+          ) : (
+            <View style={styles.pulse}>
+              <Ionicons name="car-sport-outline" size={34} color={colors.primary} />
+              <Text style={styles.pulseText}>Ready</Text>
+            </View>
+          )}
         </View>
 
         {tracking ? (
           <Pressable style={styles.muteToggle} onPress={() => setMuted((m) => !m)}>
-            <Text style={styles.muteText}>{muted ? "Voice alerts: off" : "Voice alerts: on"}</Text>
+            <Ionicons
+              name={muted ? "volume-mute-outline" : "volume-high-outline"}
+              size={16}
+              color={muted ? colors.textMuted : colors.primary}
+            />
+            <Text style={[styles.muteText, !muted && { color: colors.primary }]}>
+              {muted ? "Voice alerts: off" : "Voice alerts: on"}
+            </Text>
           </Pressable>
         ) : null}
 
         {!tracking ? (
-          <Pressable style={[styles.button, starting && { opacity: 0.6 }]} onPress={start} disabled={starting}>
-            {starting ? <ActivityIndicator color="#fff" /> : <Text style={styles.buttonText}>Start drive</Text>}
-          </Pressable>
+          <Button label="Start drive" onPress={start} loading={starting} />
         ) : (
-          <Pressable style={[styles.button, styles.stop, stopping && { opacity: 0.6 }]} onPress={stop} disabled={stopping}>
-            {stopping ? <ActivityIndicator color="#fff" /> : <Text style={styles.buttonText}>End drive</Text>}
-          </Pressable>
+          <Button label="End drive" variant="danger" onPress={stop} loading={stopping} />
         )}
 
         <Text style={styles.note}>
@@ -336,7 +387,14 @@ const styles = StyleSheet.create({
   statValue: { color: "#0f172a", fontSize: 30, fontWeight: "800" },
   statUnit: { color: "#5b6b86", fontSize: 16, fontWeight: "600" },
   statLabel: { color: "#5b6b86", fontSize: 13, marginTop: 4 },
-  pulseWrap: { alignItems: "center" },
+  pulseWrap: { alignItems: "center", justifyContent: "center", height: 200 },
+  pulseGlow: {
+    position: "absolute",
+    width: 160,
+    height: 160,
+    borderRadius: 80,
+    backgroundColor: "#2563eb",
+  },
   pulse: {
     width: 160,
     height: 160,
@@ -346,18 +404,28 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     alignItems: "center",
     justifyContent: "center",
+    gap: 6,
+    ...shadow,
+    shadowOpacity: 0.2,
+    shadowColor: "#4338ca",
   },
-  pulseActive: { borderColor: "#2563eb", backgroundColor: "#e8f0ff" },
   pulseText: { color: "#0f172a", fontSize: 16, fontWeight: "700" },
+  pulseTextOn: { color: "#fff", fontSize: 16, fontWeight: "800" },
   alertBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
     backgroundColor: "#fef3c7",
     borderColor: "#f59e0b",
     borderWidth: 1,
     borderRadius: 12,
     padding: 14,
   },
-  alertText: { color: "#92400e", fontSize: 15, fontWeight: "700", textAlign: "center" },
+  alertText: { color: "#92400e", fontSize: 15, fontWeight: "700", flex: 1 },
   muteToggle: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
     alignSelf: "center",
     backgroundColor: "#ffffff",
     borderColor: "#e4e9f2",
@@ -367,9 +435,6 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
   },
   muteText: { color: "#5b6b86", fontSize: 13, fontWeight: "700" },
-  button: { backgroundColor: "#2563eb", borderRadius: 14, paddingVertical: 17, alignItems: "center" },
-  stop: { backgroundColor: "#dc2626" },
-  buttonText: { color: "#fff", fontSize: 17, fontWeight: "800" },
   note: { color: "#94a3b8", fontSize: 12, textAlign: "center" },
   error: { color: "#dc2626", textAlign: "center" },
 });

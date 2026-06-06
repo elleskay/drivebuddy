@@ -1,9 +1,13 @@
 import { useState } from "react";
-import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import { StyleSheet, Text, TextInput, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Link } from "expo-router";
+import { LinearGradient } from "expo-linear-gradient";
+import { Ionicons } from "@expo/vector-icons";
 import { useAuth } from "@/lib/auth-context";
 import { ApiError } from "@/lib/api";
+import { Button } from "@/components/ui";
+import { colors, gradients, radius, shadow, spacing } from "@/lib/theme";
 
 export default function LoginScreen() {
   const { signIn } = useAuth();
@@ -27,15 +31,25 @@ export default function LoginScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.inner}>
-        <Text style={styles.brand}>DriveBuddy</Text>
-        <Text style={styles.subtitle}>Welcome back</Text>
+        <View style={styles.brandWrap}>
+          <LinearGradient
+            colors={gradients.primary as unknown as string[]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.logo}
+          >
+            <Ionicons name="car-sport" size={34} color="#fff" />
+          </LinearGradient>
+          <Text style={styles.brand}>DriveBuddy</Text>
+          <Text style={styles.subtitle}>Your smart driving companion</Text>
+        </View>
 
         {error ? <Text style={styles.error}>{error}</Text> : null}
 
         <TextInput
           style={styles.input}
           placeholder="Email"
-          placeholderTextColor="#94a3b8"
+          placeholderTextColor={colors.textDim}
           autoCapitalize="none"
           keyboardType="email-address"
           value={email}
@@ -44,15 +58,13 @@ export default function LoginScreen() {
         <TextInput
           style={styles.input}
           placeholder="Password"
-          placeholderTextColor="#94a3b8"
+          placeholderTextColor={colors.textDim}
           secureTextEntry
           value={password}
           onChangeText={setPassword}
         />
 
-        <Pressable style={[styles.button, busy && styles.buttonDisabled]} onPress={onSubmit} disabled={busy}>
-          {busy ? <ActivityIndicator color="#fff" /> : <Text style={styles.buttonText}>Sign in</Text>}
-        </Pressable>
+        <Button label="Sign in" onPress={onSubmit} loading={busy} style={{ marginTop: spacing.sm }} />
 
         <Link href="/register" style={styles.linkRow}>
           <Text style={styles.linkMuted}>New here? </Text>
@@ -64,25 +76,34 @@ export default function LoginScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#f5f7fb" },
+  container: { flex: 1, backgroundColor: colors.bg },
   inner: { flex: 1, justifyContent: "center", paddingHorizontal: 24, gap: 12 },
-  brand: { color: "#2563eb", fontSize: 34, fontWeight: "800", textAlign: "center" },
-  subtitle: { color: "#5b6b86", fontSize: 16, textAlign: "center", marginBottom: 12 },
+  brandWrap: { alignItems: "center", marginBottom: spacing.lg },
+  logo: {
+    width: 72,
+    height: 72,
+    borderRadius: 20,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: spacing.md,
+    ...shadow,
+    shadowOpacity: 0.25,
+    shadowColor: "#4338ca",
+  },
+  brand: { color: colors.text, fontSize: 32, fontWeight: "800", textAlign: "center" },
+  subtitle: { color: colors.textMuted, fontSize: 15, textAlign: "center", marginTop: 4 },
   input: {
-    backgroundColor: "#ffffff",
-    borderColor: "#e4e9f2",
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
     borderWidth: 1,
-    borderRadius: 12,
+    borderRadius: radius.md,
     paddingHorizontal: 16,
     paddingVertical: 14,
-    color: "#0f172a",
+    color: colors.text,
     fontSize: 16,
   },
-  button: { backgroundColor: "#2563eb", borderRadius: 12, paddingVertical: 15, alignItems: "center", marginTop: 6 },
-  buttonDisabled: { opacity: 0.6 },
-  buttonText: { color: "#fff", fontSize: 16, fontWeight: "700" },
   linkRow: { marginTop: 18, textAlign: "center" },
-  linkMuted: { color: "#5b6b86" },
-  link: { color: "#2563eb", fontWeight: "700" },
-  error: { color: "#dc2626", textAlign: "center" },
+  linkMuted: { color: colors.textMuted },
+  link: { color: colors.primary, fontWeight: "700" },
+  error: { color: colors.danger, textAlign: "center" },
 });

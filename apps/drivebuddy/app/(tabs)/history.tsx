@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useState } from "react";
 import { Alert, FlatList, Pressable, Share, StyleSheet, Text, View } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import { SkeletonList } from "@/components/skeleton";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useFocusEffect, useRouter } from "expo-router";
+import { accent, radius, shadow } from "@/lib/theme";
 import { api, type DrivingRoute } from "@/lib/api";
 
 export default function HistoryScreen() {
@@ -80,10 +82,15 @@ export default function HistoryScreen() {
         renderItem={({ item }) => (
           <View style={styles.row}>
             <Pressable style={styles.info} onPress={() => router.push(`/trip/${item.id}`)}>
-              <Text style={styles.title}>{item.name || formatDate(item.startTime)}</Text>
-              <Text style={styles.meta}>
-                {item.totalDistance.toFixed(1)} km · avg {Math.round(item.averageSpeed)} km/h
-              </Text>
+              <View style={styles.routeIcon}>
+                <Ionicons name="navigate" size={18} color={accent.routine} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.title}>{item.name || formatDate(item.startTime)}</Text>
+                <Text style={styles.meta}>
+                  {item.totalDistance.toFixed(1)} km · avg {Math.round(item.averageSpeed)} km/h
+                </Text>
+              </View>
             </Pressable>
             <View style={styles.actions}>
               <Pressable
@@ -130,8 +137,17 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderRadius: 14,
     padding: 16,
+    ...shadow,
   },
-  info: { flex: 1 },
+  info: { flex: 1, flexDirection: "row", alignItems: "center", gap: 12 },
+  routeIcon: {
+    width: 38,
+    height: 38,
+    borderRadius: radius.md,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: accent.routine + "1a",
+  },
   title: { color: "#0f172a", fontSize: 16, fontWeight: "700" },
   meta: { color: "#5b6b86", fontSize: 13, marginTop: 3 },
   actions: { flexDirection: "row", gap: 8, marginLeft: 8 },

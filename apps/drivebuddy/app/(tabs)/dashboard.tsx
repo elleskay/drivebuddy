@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useState } from "react";
 import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import { SkeletonList } from "@/components/skeleton";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { accent, radius, shadow, spacing } from "@/lib/theme";
 import {
   api,
   type CarparkItem,
@@ -11,6 +13,8 @@ import {
   type TrafficItem,
   type WeatherItem,
 } from "@/lib/api";
+
+type IoniconName = React.ComponentProps<typeof Ionicons>["name"];
 
 interface Data {
   weather: Feed<WeatherItem[]>;
@@ -95,20 +99,20 @@ export default function DashboardScreen() {
           </View>
         </View>
 
-        <Card title="Weather" subtitle="Next 2 hours · data.gov.sg">
+        <Card title="Weather" subtitle="Next 2 hours · data.gov.sg" icon="partly-sunny-outline" tint={accent.weather}>
           {data?.weather.data.slice(0, 6).map((w) => (
             <Row key={w.area} left={w.area} right={w.forecast} />
           )) ?? null}
           {!data?.weather.data.length ? <Muted>No data</Muted> : null}
         </Card>
 
-        <Card title="Petrol (95)" subtitle="Indicative prices">
+        <Card title="Petrol (95)" subtitle="Indicative prices" icon="water-outline" tint={accent.fuel}>
           {data?.petrol.data.map((p) => (
             <Row key={p.brand} left={`${p.brand} ${p.product}`} right={`$${p.price.toFixed(2)}`} />
           ))}
         </Card>
 
-        <Card title="Traffic incidents" subtitle="LTA DataMall">
+        <Card title="Traffic incidents" subtitle="LTA DataMall" icon="warning-outline" tint={accent.traffic}>
           {data?.traffic.keyRequired ? (
             <Muted>Add an LTA DataMall key to enable live traffic.</Muted>
           ) : data?.traffic.data.length ? (
@@ -118,7 +122,7 @@ export default function DashboardScreen() {
           )}
         </Card>
 
-        <Card title="Carpark availability" subtitle="LTA DataMall">
+        <Card title="Carpark availability" subtitle="LTA DataMall" icon="business-outline" tint={accent.carpark}>
           {data?.carpark.keyRequired ? (
             <Muted>Add an LTA DataMall key to enable carpark data.</Muted>
           ) : data?.carpark.data.length ? (
@@ -130,7 +134,7 @@ export default function DashboardScreen() {
           )}
         </Card>
 
-        <Card title="ERP rates" subtitle="LTA DataMall">
+        <Card title="ERP rates" subtitle="LTA DataMall" icon="card-outline" tint={accent.erp}>
           {data?.erp.keyRequired ? (
             <Muted>Add an LTA DataMall key to enable ERP rates.</Muted>
           ) : data?.erp.data.length ? (
@@ -146,11 +150,30 @@ export default function DashboardScreen() {
   );
 }
 
-function Card({ title, subtitle, children }: { title: string; subtitle: string; children: React.ReactNode }) {
+function Card({
+  title,
+  subtitle,
+  icon,
+  tint,
+  children,
+}: {
+  title: string;
+  subtitle: string;
+  icon: IoniconName;
+  tint: string;
+  children: React.ReactNode;
+}) {
   return (
     <View style={styles.card}>
-      <Text style={styles.cardTitle}>{title}</Text>
-      <Text style={styles.cardSub}>{subtitle}</Text>
+      <View style={styles.cardHead}>
+        <View style={[styles.cardIcon, { backgroundColor: tint + "1a" }]}>
+          <Ionicons name={icon} size={20} color={tint} />
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.cardTitle}>{title}</Text>
+          <Text style={styles.cardSub}>{subtitle}</Text>
+        </View>
+      </View>
       <View style={styles.cardBody}>{children}</View>
     </View>
   );
@@ -181,9 +204,12 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderRadius: 14,
     padding: 16,
+    ...shadow,
   },
+  cardHead: { flexDirection: "row", alignItems: "center", gap: spacing.md, marginBottom: 10 },
+  cardIcon: { width: 40, height: 40, borderRadius: radius.md, alignItems: "center", justifyContent: "center" },
   cardTitle: { color: "#0f172a", fontSize: 17, fontWeight: "800" },
-  cardSub: { color: "#94a3b8", fontSize: 12, marginTop: 2, marginBottom: 8 },
+  cardSub: { color: "#94a3b8", fontSize: 12, marginTop: 1 },
   cardBody: { gap: 6 },
   rowItem: { flexDirection: "row", justifyContent: "space-between", gap: 12 },
   rowLeft: { color: "#5b6b86", fontSize: 14, flexShrink: 1 },

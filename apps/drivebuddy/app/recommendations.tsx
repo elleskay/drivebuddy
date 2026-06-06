@@ -1,8 +1,10 @@
 import { useCallback, useState } from "react";
 import { FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import { SkeletonList } from "@/components/skeleton";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useFocusEffect } from "expo-router";
+import { accent, colors, radius, shadow } from "@/lib/theme";
 import { api, type Insights, type Recommendation } from "@/lib/api";
 
 export default function RecommendationsScreen() {
@@ -68,12 +70,15 @@ export default function RecommendationsScreen() {
         }
         renderItem={({ item }) => (
           <View style={styles.card}>
+            <View style={styles.cardIconWrap}>
+              <Ionicons name="bulb-outline" size={20} color={accent.carpark} />
+            </View>
             <View style={{ flex: 1 }}>
               <Text style={styles.cardTitle}>{item.title}</Text>
               <Text style={styles.cardBody}>{item.body}</Text>
             </View>
             <Pressable onPress={() => dismiss(item.id)} hitSlop={10}>
-              <Text style={styles.dismiss}>X</Text>
+              <Ionicons name="close-circle" size={22} color={colors.textDim} />
             </Pressable>
           </View>
         )}
@@ -137,15 +142,23 @@ const styles = StyleSheet.create({
   empty: { color: "#5b6b86", textAlign: "center", marginTop: 16, paddingHorizontal: 12, lineHeight: 20 },
   card: {
     flexDirection: "row",
+    alignItems: "center",
     gap: 12,
     backgroundColor: "#ffffff",
     borderColor: "#e4e9f2",
     borderWidth: 1,
     borderRadius: 14,
     padding: 16,
+    ...shadow,
   },
-  cardIcon: { fontSize: 22 },
+  cardIconWrap: {
+    width: 40,
+    height: 40,
+    borderRadius: radius.md,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: accent.carpark + "1a",
+  },
   cardTitle: { color: "#0f172a", fontSize: 15, fontWeight: "700" },
   cardBody: { color: "#5b6b86", fontSize: 13, marginTop: 3, lineHeight: 19 },
-  dismiss: { color: "#94a3b8", fontSize: 18, fontWeight: "700" },
 });

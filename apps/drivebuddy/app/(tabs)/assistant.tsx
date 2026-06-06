@@ -11,9 +11,12 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { LinearGradient } from "expo-linear-gradient";
+import { Ionicons } from "@expo/vector-icons";
 import { Audio } from "expo-av";
 import * as FileSystem from "expo-file-system";
 import { api, ApiError } from "@/lib/api";
+import { colors, gradients } from "@/lib/theme";
 
 interface Msg {
   id: string;
@@ -206,6 +209,11 @@ export default function AssistantScreen() {
           style={[styles.handsFree, continuous && styles.handsFreeOn]}
           onPress={toggleContinuous}
         >
+          <Ionicons
+            name={continuous ? "ear" : "ear-outline"}
+            size={15}
+            color={continuous ? colors.primary : colors.textMuted}
+          />
           <Text style={[styles.handsFreeText, continuous && styles.handsFreeTextOn]}>
             {continuous ? "Hands-free on — listening, tap to stop" : "Start hands-free mode"}
           </Text>
@@ -216,7 +224,7 @@ export default function AssistantScreen() {
             onPress={recording ? stopRecording : startRecording}
             disabled={busy && !recording}
           >
-            <Text style={styles.micIcon}>{recording ? "Stop" : "Mic"}</Text>
+            <Ionicons name={recording ? "stop" : "mic"} size={20} color={recording ? "#fff" : colors.primary} />
           </Pressable>
           <TextInput
             style={styles.input}
@@ -228,8 +236,15 @@ export default function AssistantScreen() {
             onSubmitEditing={() => send(input)}
             returnKeyType="send"
           />
-          <Pressable style={styles.sendBtn} onPress={() => send(input)} disabled={busy || !input.trim()}>
-            <Text style={styles.sendText}>Send</Text>
+          <Pressable onPress={() => send(input)} disabled={busy || !input.trim()}>
+            <LinearGradient
+              colors={gradients.primary as unknown as string[]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={[styles.sendBtn, (busy || !input.trim()) && { opacity: 0.5 }]}
+            >
+              <Ionicons name="arrow-up" size={20} color="#fff" />
+            </LinearGradient>
           </Pressable>
         </View>
       </KeyboardAvoidingView>
@@ -248,6 +263,9 @@ const styles = StyleSheet.create({
   thinking: { flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: 18, paddingBottom: 6 },
   thinkingText: { color: "#5b6b86", fontSize: 13 },
   handsFree: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
     alignSelf: "center",
     marginBottom: 6,
     paddingHorizontal: 14,
@@ -280,7 +298,6 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   micActive: { backgroundColor: "#dc2626", borderColor: "#dc2626" },
-  micIcon: { fontSize: 13, fontWeight: "700", color: "#0f172a" },
   input: {
     flex: 1,
     backgroundColor: "#ffffff",
@@ -292,6 +309,5 @@ const styles = StyleSheet.create({
     color: "#0f172a",
     fontSize: 15,
   },
-  sendBtn: { backgroundColor: "#2563eb", borderRadius: 22, paddingHorizontal: 16, paddingVertical: 11 },
-  sendText: { color: "#fff", fontWeight: "800", fontSize: 14 },
+  sendBtn: { width: 44, height: 44, borderRadius: 22, alignItems: "center", justifyContent: "center" },
 });
