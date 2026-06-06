@@ -37,7 +37,10 @@ export class ApiStack extends cdk.Stack {
         DD_SERVICE: process.env.DD_SERVICE ?? "mobile-platform-api",
         LTA_ACCOUNT_KEY: process.env.LTA_ACCOUNT_KEY ?? "",
         AUDIO_BUCKET: audioBucket.bucketName,
-        BEDROCK_MODEL_ID: process.env.BEDROCK_MODEL_ID ?? "apac.amazon.nova-lite-v1:0",
+        // The AI assistant's LLM runs on the Anthropic Claude API (not Bedrock):
+        // just an API key, no AWS model-access/quota setup.
+        ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY ?? "",
+        ANTHROPIC_MODEL: process.env.ANTHROPIC_MODEL ?? "claude-haiku-4-5",
       },
       // OpenSearch is off by default (a domain is not free). Turn on when you
       // need clustering of similar reports.
@@ -45,21 +48,16 @@ export class ApiStack extends cdk.Stack {
     });
 
     // The HTTP Lambda runs the AI assistant: it reads/writes the audio bucket and
-    // calls Bedrock (LLM), Polly (TTS) and Transcribe (STT).
+    // calls Polly (TTS) and Transcribe (STT). The LLM is the Anthropic Claude API
+    // (an outbound HTTPS call with an API key) - no AWS IAM needed for it.
     audioBucket.grantReadWrite(api.httpFunction);
     api.httpFunction.addToRolePolicy(
       new iam.PolicyStatement({
         actions: [
-          "bedrock:InvokeModel",
-          "bedrock:InvokeModelWithResponseStream",
-          "bedrock:Converse",
-          "bedrock:ConverseStream",
           "polly:SynthesizeSpeech",
           "transcribe:StartTranscriptionJob",
           "transcribe:GetTranscriptionJob",
         ],
-        // "*" so the cross-region inference profile and its backing foundation
-        // model ARNs (in multiple APAC regions) are all covered.
         resources: ["*"],
       }),
     );

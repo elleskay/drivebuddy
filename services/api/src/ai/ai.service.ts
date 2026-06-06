@@ -1,5 +1,4 @@
 import { Injectable, Logger, ServiceUnavailableException } from "@nestjs/common";
-import { BedrockRuntimeClient, ConverseCommand } from "@aws-sdk/client-bedrock-runtime";
 import { PollyClient, SynthesizeSpeechCommand } from "@aws-sdk/client-polly";
 import {
   TranscribeClient,
@@ -17,12 +16,14 @@ export interface VoiceAnswer extends AiAnswer {
   transcript: string;
 }
 
-// Amazon Nova Lite via the APAC cross-region inference profile: cheap, fast,
-// available in ap-southeast-1, and (unlike Anthropic models) it needs no use-case
-// form. Nova is only invokable through an inference profile, not the bare model
-// id. Override via env. Uses the Converse API so the request/response shape is
-// uniform across model families.
-const MODEL_ID = process.env.BEDROCK_MODEL_ID ?? "apac.amazon.nova-lite-v1:0";
+// The LLM runs on the Anthropic Claude API (api.anthropic.com), not Bedrock:
+// it only needs an API key (ANTHROPIC_API_KEY) and sidesteps AWS Bedrock model
+// access / per-account daily quotas entirely. Haiku is the cheap/fast default,
+// well-suited to short spoken answers; override via ANTHROPIC_MODEL.
+const ANTHROPIC_API_URL = "https://api.anthropic.com/v1/messages";
+const ANTHROPIC_VERSION = "2023-06-01";
+const ANTHROPIC_MODEL = process.env.ANTHROPIC_MODEL ?? "claude-haiku-4-5";
+const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
 
 const SYSTEM_PROMPT =
   "You are DriveBuddy, an in-car voice assistant for drivers in Singapore. " +
@@ -34,7 +35,6 @@ const SYSTEM_PROMPT =
 @Injectable()
 export class AiService {
   private readonly logger = new Logger(AiService.name);
-  private readonly bedrock = new BedrockRuntimeClient({});
   private readonly polly = new PollyClient({});
   private readonly transcribe = new TranscribeClient({});
   private readonly s3 = new S3Client({});
@@ -58,33 +58,56 @@ export class AiService {
     return { transcript, answer, audio };
   }
 
-  // ---- Bedrock -------------------------------------------------------------
+  // ---- LLM (Anthropic Claude API) -----------------------------------------
 
   private async invokeLlm(text: string): Promise<string> {
-    try {
-      const res = await this.bedrock.send(
-        new ConverseCommand({
-          modelId: MODEL_ID,
-          system: [{ text: SYSTEM_PROMPT }],
-          messages: [{ role: "user", content: [{ text }] }],
-          inferenceConfig: { maxTokens: 400, temperature: 0.4 },
-        }),
+    if (!ANTHROPIC_API_KEY) {
+      throw new ServiceUnavailableException(
+        "The AI assistant isn't configured yet - set the ANTHROPIC_API_KEY secret to enable it.",
       );
-      const answer = res.output?.message?.content?.map((c) => c.text ?? "").join("").trim();
+    }
+    try {
+      // Node 20's global fetch - no SDK, so nothing ESM-only enters the bundle.
+      const res = await fetch(ANTHROPIC_API_URL, {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          "x-api-key": ANTHROPIC_API_KEY,
+          "anthropic-version": ANTHROPIC_VERSION,
+        },
+        body: JSON.stringify({
+          model: ANTHROPIC_MODEL,
+          max_tokens: 400,
+          temperature: 0.4,
+          system: SYSTEM_PROMPT,
+          messages: [{ role: "user", content: text }],
+        }),
+      });
+      if (!res.ok) {
+        const body = await res.text();
+        this.logger.error(`Anthropic API ${res.status}: ${body.slice(0, 300)}`);
+        if (res.status === 401 || res.status === 403) {
+          throw new ServiceUnavailableException(
+            "The AI assistant isn't available - the Anthropic API key is missing or invalid.",
+          );
+        }
+        if (res.status === 429) {
+          throw new ServiceUnavailableException(
+            "The AI assistant is busy right now (rate limit reached). Please try again in a moment.",
+          );
+        }
+        throw new ServiceUnavailableException("The AI assistant is temporarily unavailable.");
+      }
+      const data = (await res.json()) as { content?: { type: string; text?: string }[] };
+      const answer = data.content
+        ?.filter((b) => b.type === "text")
+        .map((b) => b.text ?? "")
+        .join("")
+        .trim();
       return answer || "Sorry, I don't have an answer for that right now.";
     } catch (err) {
-      const message = (err as Error).message;
-      this.logger.error(`Bedrock invoke failed: ${message}`);
-      if (/use case details|AccessDenied|not authorized|don't have access|model.*access/i.test(message)) {
-        throw new ServiceUnavailableException(
-          "The AI assistant isn't available yet - Bedrock model access must be enabled for this AWS account/region.",
-        );
-      }
-      if (/throttl|too many|rate ?exceeded|quota|limit/i.test(message)) {
-        throw new ServiceUnavailableException(
-          "The AI assistant is busy right now (the account's daily Bedrock quota was reached). Please try again later.",
-        );
-      }
+      if (err instanceof ServiceUnavailableException) throw err;
+      this.logger.error(`Anthropic call failed: ${(err as Error).message}`);
       throw new ServiceUnavailableException("The AI assistant is temporarily unavailable.");
     }
   }

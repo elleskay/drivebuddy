@@ -103,6 +103,9 @@ jobs:
           CLASSIFIER_API_URL: ${{ vars.CLASSIFIER_API_URL }}
           CLASSIFIER_API_KEY: ${{ secrets.CLASSIFIER_API_KEY }}
           ENABLE_OPENSEARCH: ${{ vars.ENABLE_OPENSEARCH }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          ANTHROPIC_MODEL: ${{ vars.ANTHROPIC_MODEL }}
+          LTA_ACCOUNT_KEY: ${{ secrets.LTA_ACCOUNT_KEY }}
         run: npx cdk deploy --all --require-approval never --outputs-file cdk-outputs.json
 
       - name: Extract deployed API URL
