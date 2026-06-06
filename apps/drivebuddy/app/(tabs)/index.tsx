@@ -65,7 +65,6 @@ export default function HomeScreen() {
               tint={t.tint}
               badge={t.badge}
               onPress={() => router.push(t.route as never)}
-              style={styles.tile}
             />
           ))}
         </View>
@@ -87,8 +86,7 @@ const styles = StyleSheet.create({
   heroNum: { color: "#fff", fontSize: 24, fontWeight: "800" },
   heroLabel: { color: "rgba(255,255,255,0.85)", fontSize: 12, marginTop: 2 },
   heroDivider: { width: 1, height: 36, backgroundColor: "rgba(255,255,255,0.25)", marginHorizontal: spacing.lg },
-  grid: { flexDirection: "row", flexWrap: "wrap", gap: spacing.md },
-  tile: { width: "47.5%", flexGrow: 1 },
+  grid: { gap: spacing.md },
   signOut: { alignItems: "center", paddingVertical: 14, marginTop: spacing.sm },
   signOutText: { color: colors.danger, fontSize: 15, fontWeight: "600" },
   tagline: { color: colors.textDim, fontSize: 13, textAlign: "center", paddingBottom: spacing.sm },

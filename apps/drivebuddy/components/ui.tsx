@@ -231,6 +231,6 @@ const styles = StyleSheet.create({
   // overflowing the card (a no-op on native, required on web flexbox).
   navBody: { flex: 1, minWidth: 0 },
   navRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8 },
-  navTitle: { color: colors.text, fontSize: 15, fontWeight: "700", flex: 1, minWidth: 0 },
+  navTitle: { color: colors.text, fontSize: 16, fontWeight: "700", flex: 1, minWidth: 0 },
   navDesc: { color: colors.textMuted, fontSize: 12, marginTop: 1 },
 });
