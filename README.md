@@ -41,7 +41,7 @@ Expo (React Native), NestJS, Prisma, Neon Postgres, AWS Lambda + API Gateway + S
   </tr>
   <tr>
     <td align="center"><img src="docs/screenshots/settings.png" width="210"/><br/><sub><b>Settings</b></sub></td>
-    <td></td>
+    <td align="center"><img src="docs/screenshots/journey-alert.png" width="210"/><br/><sub><b>In-drive alert</b></sub></td>
     <td></td>
   </tr>
 </table>
@@ -54,7 +54,7 @@ Expo (React Native), NestJS, Prisma, Neon Postgres, AWS Lambda + API Gateway + S
 
 | Feature | What it does |
 |---|---|
-| **Journey Mode** | Records your drive with foreground GPS (`expo-location`), batches points to the API, and computes live distance, average and max speed. |
+| **Journey Mode** | Records your drive with foreground GPS (`expo-location`), batches points to the API, computes live distance/speed, and gives in-drive voice (`expo-speech`) and on-screen banner alerts for ERP gantries and nearby traffic as you approach them. |
 | **Post-trip summary** | On stop, generates a trip summary with the driven route drawn on an OpenStreetMap map (keyless raster tiles, no Google dependency) and an itemised cost breakdown: fuel (from your main vehicle's consumption over the distance), ERP, and parking. |
 | **Live Info dashboard** | Singapore data in one place: 2-hour weather (data.gov.sg), petrol prices, and live traffic, ERP and carpark availability (LTA DataMall). Pull to refresh, cached. |
 | **AI Assistant** | A voice and text assistant for Singapore driving questions: the Anthropic Claude API for answers, Polly for spoken replies, Transcribe for voice input. |
