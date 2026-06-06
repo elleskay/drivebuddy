@@ -52,8 +52,13 @@
       ],
       ["expo-build-properties", { "android": { "usesCleartextTraffic": false } }]
     ],
+    "web": {
+      "bundler": "metro",
+      "output": "single"
+    },
     "experiments": {
-      "typedRoutes": true
+      "typedRoutes": true,
+      "baseUrl": "/drivebuddy"
     },
     "extra": {
       "apiUrl": "https://tq7rrvits7.execute-api.ap-southeast-1.amazonaws.com"

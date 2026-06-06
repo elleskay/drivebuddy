@@ -1,0 +1,53 @@
+name: deploy-web
+
+# Builds the Expo app for web (react-native-web) pointed at the live API and
+# publishes it to GitHub Pages. This is the clickable demo: a browser URL that
+# runs the real DriveBuddy UI against the deployed AWS API. Native-only features
+# (background GPS, push, audio capture) degrade gracefully on web.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - name: Export web build
+        working-directory: apps/drivebuddy
+        env:
+          # Live API the demo talks to. Public URL, no secrets. Override with the
+          # DEMO_API_URL repo variable; falls back to the deployed endpoint.
+          EXPO_PUBLIC_API_URL: ${{ vars.DEMO_API_URL || 'https://tq7rrvits7.execute-api.ap-southeast-1.amazonaws.com' }}
+        run: npx expo export --platform web
+      - name: SPA deep-link fallback
+        run: cp apps/drivebuddy/dist/index.html apps/drivebuddy/dist/404.html
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: apps/drivebuddy/dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

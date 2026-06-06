@@ -1,6 +1,7 @@
+import { Platform } from "react-native";
 import * as TaskManager from "expo-task-manager";
 import * as Location from "expo-location";
-import * as SecureStore from "expo-secure-store";
+import { secureGet, secureSet, secureDelete } from "./secure-storage";
 import { api } from "./api";
 
 // Background location task. Registered at app start (imported in app/_layout.tsx)
@@ -11,18 +12,21 @@ export const LOCATION_TASK = "drivebuddy-location";
 const ACTIVE_ROUTE_KEY = "active_route_id";
 
 export async function setActiveRouteId(id: string | null): Promise<void> {
-  if (id) await SecureStore.setItemAsync(ACTIVE_ROUTE_KEY, id);
-  else await SecureStore.deleteItemAsync(ACTIVE_ROUTE_KEY);
+  if (id) await secureSet(ACTIVE_ROUTE_KEY, id);
+  else await secureDelete(ACTIVE_ROUTE_KEY);
 }
 export function getActiveRouteId(): Promise<string | null> {
-  return SecureStore.getItemAsync(ACTIVE_ROUTE_KEY);
+  return secureGet(ACTIVE_ROUTE_KEY);
 }
 
 interface LocationTaskData {
   locations?: Location.LocationObject[];
 }
 
-TaskManager.defineTask(LOCATION_TASK, async ({ data, error }) => {
+// TaskManager has no web implementation; defining a task there throws at import.
+// The web demo records drives with the foreground watcher only (no OS background task).
+if (Platform.OS !== "web")
+  TaskManager.defineTask(LOCATION_TASK, async ({ data, error }) => {
   if (error) return;
   const { locations } = (data ?? {}) as LocationTaskData;
   if (!locations?.length) return;

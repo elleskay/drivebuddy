@@ -27,6 +27,7 @@ One Expo app, one NestJS API, fully serverless on AWS. Roughly **$0 to $2 per mo
 
 ## Table of contents
 
+- [Live demo](#live-demo)
 - [Highlights](#highlights)
 - [Screens](#screens)
 - [Features](#features)
@@ -42,6 +43,23 @@ One Expo app, one NestJS API, fully serverless on AWS. Roughly **$0 to $2 per mo
 - [Getting started](#getting-started)
 - [Cost](#cost)
 - [Status and roadmap](#status-and-roadmap)
+
+---
+
+## Live demo
+
+| | |
+|---|---|
+| **Web app** | https://elleskay.github.io/drivebuddy/ (the real React Native screens via react-native-web, running against the live API) |
+| **Live API health** | https://tq7rrvits7.execute-api.ap-southeast-1.amazonaws.com/health |
+
+DriveBuddy is a native app, so the web build is a UI tour: auth, home, the live dashboard, vehicles,
+history, recommendations, AI text chat, and profile all work in the browser against the deployed
+backend. The native-only parts (background GPS recording, push, microphone capture) show graceful
+"not available on web" behaviour. For the full experience, including a recorded drive with in-drive
+voice alerts, see [Key sequences](#key-sequences) and the in-drive screenshots above.
+
+The web demo is built and published by the `deploy-web` workflow (Expo web export to GitHub Pages).
 
 ---
 
