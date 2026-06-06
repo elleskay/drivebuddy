@@ -38,6 +38,10 @@ jobs:
       - name: SPA deep-link fallback
         run: cp apps/drivebuddy/dist/index.html apps/drivebuddy/dist/404.html
       - uses: actions/configure-pages@v5
+        with:
+          # Create the Pages site automatically if it does not exist yet, so no
+          # manual Settings toggle is required for the first publish.
+          enablement: true
       - uses: actions/upload-pages-artifact@v3
         with:
           path: apps/drivebuddy/dist
