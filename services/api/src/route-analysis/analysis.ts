@@ -14,6 +14,8 @@ export interface Insights {
   topDestinations: { label: string; lat: number; lng: number; count: number }[];
   recentDistanceKm: number; // distance driven in the last 14 days
   crossesCauseway: string | null; // "Woodlands" | "Tuas" if drives reach a checkpoint
+  morningPeakHour: number | null; // most common departure hour before noon (SGT)
+  eveningPeakHour: number | null; // most common departure hour from noon (SGT)
 }
 
 export interface RecommendationDraft {
@@ -106,6 +108,24 @@ export function computeInsights(trips: TripSummary[]): Insights {
     [...checkpointHits.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? null;
 
   const peakHour = totalTrips ? hourCounts.indexOf(Math.max(...hourCounts)) : null;
+  // Split the day so commuters get a morning-out and an evening-home peak.
+  let amIdx: number | null = null;
+  let pmIdx: number | null = null;
+  let amBest = 0;
+  let pmBest = 0;
+  for (let h = 0; h < 24; h++) {
+    const c = hourCounts[h] ?? 0;
+    if (c <= 0) continue;
+    if (h < 12) {
+      if (c > amBest) {
+        amBest = c;
+        amIdx = h;
+      }
+    } else if (c > pmBest) {
+      pmBest = c;
+      pmIdx = h;
+    }
+  }
   const busiestDay = totalTrips ? DAYS[dayCounts.indexOf(Math.max(...dayCounts))]! : null;
   const topDestinations = [...destBuckets.values()]
     .sort((a, b) => b.count - a.count)
@@ -126,6 +146,8 @@ export function computeInsights(trips: TripSummary[]): Insights {
     topDestinations,
     recentDistanceKm,
     crossesCauseway,
+    morningPeakHour: amIdx,
+    eveningPeakHour: pmIdx,
   };
 }
 

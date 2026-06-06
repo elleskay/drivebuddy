@@ -214,6 +214,8 @@ export interface Insights {
   topDestinations: { label: string; lat: number; lng: number; count: number }[];
   recentDistanceKm: number;
   crossesCauseway: string | null;
+  morningPeakHour: number | null;
+  eveningPeakHour: number | null;
 }
 export interface Recommendation {
   id: string;

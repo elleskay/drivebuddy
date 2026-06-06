@@ -189,7 +189,7 @@ async function handlePreDriveSweep(): Promise<void> {
 
   const weather = await liveWeatherSummary();
   const traffic = await liveTrafficCount();
-  const dayStart = startOfSgtDayUtc(now);
+  const twoHoursAgo = new Date(now.getTime() - 2 * 3_600_000);
   let sent = 0;
 
   for (const { id: userId } of users) {
@@ -199,37 +199,50 @@ async function handlePreDriveSweep(): Promise<void> {
 
       const trips = await prisma.tripSummary.findMany({ where: { userId } });
       if (trips.length < 3) continue; // not enough history for a reliable pattern
-      const { peakHour } = computeInsights(trips);
-      if (peakHour == null) continue;
+      const ins = computeInsights(trips);
 
-      // Fire roughly an hour before the usual departure hour.
-      if (peakHour !== (hour + 1) % 24) continue;
+      // Two commute slots: morning-out and evening-home. Fire ~1h before each so
+      // the evening alert re-evaluates ERP/traffic for the drive back (per spec).
+      const slots: { slot: string; hour: number | null; label: string; evening: boolean }[] = [
+        { slot: "morning", hour: ins.morningPeakHour, label: "morning drive", evening: false },
+        { slot: "evening", hour: ins.eveningPeakHour, label: "drive home", evening: true },
+      ];
+      const match = slots.find((s) => s.hour != null && s.hour === (hour + 1) % 24);
+      if (!match || match.hour == null) continue;
 
-      // At most one pre-drive alert per user per SGT day.
-      const already = await prisma.notification.count({
-        where: { userId, type: "PRE_DRIVE", createdAt: { gte: dayStart } },
+      // Avoid double-firing the same peak across consecutive hourly sweeps; the two
+      // slots are hours apart so each still gets its own alert.
+      const recent = await prisma.notification.count({
+        where: { userId, type: "PRE_DRIVE", createdAt: { gte: twoHoursAgo } },
       });
-      if (already > 0) continue;
+      if (recent > 0) continue;
 
       const bits: string[] = [];
       if (weather) bits.push(`weather looks ${weather.toLowerCase()}`);
       if (traffic != null) {
         bits.push(traffic > 0 ? `${traffic} traffic incident${traffic > 1 ? "s" : ""} reported` : "roads are clear");
       }
-      const erpPeak = (peakHour >= 7 && peakHour < 10) || (peakHour >= 17 && peakHour < 20);
-      if (erpPeak) bits.push("ERP peak pricing will be active, so leaving a little earlier or later can save on charges");
-      const body = `You usually set off around ${fmtHour(peakHour)}.${bits.length ? " " + capitalise(bits.join("; ")) + "." : ""}`;
+      const erpPeak = (match.hour >= 7 && match.hour < 10) || (match.hour >= 17 && match.hour < 20);
+      if (erpPeak) {
+        bits.push(
+          match.evening
+            ? "ERP and traffic are being re-evaluated for the evening peak - leaving a little earlier or later can save on charges"
+            : "ERP peak pricing will be active, so leaving a little earlier or later can save on charges",
+        );
+      }
+      const title = match.evening ? "Before your drive home" : "Before your morning drive";
+      const body = `Your usual ${match.label} is around ${fmtHour(match.hour)}.${bits.length ? " " + capitalise(bits.join("; ")) + "." : ""}`;
 
       const notification = await prisma.notification.create({
-        data: { userId, type: "PRE_DRIVE", title: "Heads up before your drive", body, data: { kind: "pre-drive" } },
+        data: { userId, type: "PRE_DRIVE", title, body, data: { kind: "pre-drive", slot: match.slot } },
       });
       await handlePush({
         kind: "push",
         userId,
         notificationId: notification.id,
-        title: notification.title,
+        title,
         body,
-        data: { kind: "pre-drive" },
+        data: { kind: "pre-drive", slot: match.slot },
       });
       sent++;
     } catch (err) {
