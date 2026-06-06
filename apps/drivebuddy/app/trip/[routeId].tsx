@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { ActivityIndicator, Image, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Image, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Skeleton } from "@/components/skeleton";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useLocalSearchParams } from "expo-router";
 import Svg, { Circle, Polyline } from "react-native-svg";
@@ -28,9 +29,17 @@ export default function TripScreen() {
 
   if (loading) {
     return (
-      <View style={styles.center}>
-        <ActivityIndicator color="#4f8cff" size="large" />
-      </View>
+      <SafeAreaView style={styles.container} edges={["bottom"]}>
+        <View style={styles.inner}>
+          <Skeleton width="100%" height={220} radius={14} />
+          <View style={styles.statsRow}>
+            <Skeleton width="32%" height={64} radius={12} />
+            <Skeleton width="32%" height={64} radius={12} />
+            <Skeleton width="32%" height={64} radius={12} />
+          </View>
+          <Skeleton width="100%" height={150} radius={14} />
+        </View>
+      </SafeAreaView>
     );
   }
 

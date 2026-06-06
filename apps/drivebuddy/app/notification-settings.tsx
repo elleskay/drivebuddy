@@ -1,5 +1,6 @@
 import { useCallback, useState } from "react";
-import { ActivityIndicator, ScrollView, StyleSheet, Switch, Text, View } from "react-native";
+import { ScrollView, StyleSheet, Switch, Text, View } from "react-native";
+import { SkeletonList } from "@/components/skeleton";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useFocusEffect } from "expo-router";
 import { api, type NotificationSettings } from "@/lib/api";
@@ -49,8 +50,8 @@ export default function NotificationSettingsScreen() {
 
   if (loading || !settings) {
     return (
-      <View style={styles.center}>
-        <ActivityIndicator color="#4f8cff" size="large" />
+      <View style={styles.container}>
+        <SkeletonList />
       </View>
     );
   }

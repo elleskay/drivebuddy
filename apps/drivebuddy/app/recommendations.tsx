@@ -1,5 +1,6 @@
 import { useCallback, useState } from "react";
-import { ActivityIndicator, FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from "react-native";
+import { FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from "react-native";
+import { SkeletonList } from "@/components/skeleton";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useFocusEffect } from "expo-router";
 import { api, type Insights, type Recommendation } from "@/lib/api";
@@ -37,8 +38,8 @@ export default function RecommendationsScreen() {
 
   if (loading) {
     return (
-      <View style={styles.center}>
-        <ActivityIndicator color="#4f8cff" size="large" />
+      <View style={styles.container}>
+        <SkeletonList />
       </View>
     );
   }

@@ -11,6 +11,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { api, ApiError, type FuelType, type Vehicle } from "@/lib/api";
+import { SkeletonList } from "@/components/skeleton";
 
 const FUEL_TYPES: FuelType[] = ["Petrol", "Hybrid", "Electric"];
 
@@ -103,8 +104,8 @@ export default function VehiclesScreen() {
 
   if (loading) {
     return (
-      <View style={styles.center}>
-        <ActivityIndicator color="#4f8cff" size="large" />
+      <View style={styles.container}>
+        <SkeletonList />
       </View>
     );
   }

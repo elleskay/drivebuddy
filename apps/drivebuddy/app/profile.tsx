@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { SkeletonList } from "@/components/skeleton";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { api, type Profile } from "@/lib/api";
 
@@ -48,8 +49,8 @@ export default function ProfileScreen() {
 
   if (loading) {
     return (
-      <View style={styles.center}>
-        <ActivityIndicator color="#4f8cff" size="large" />
+      <View style={styles.container}>
+        <SkeletonList />
       </View>
     );
   }
