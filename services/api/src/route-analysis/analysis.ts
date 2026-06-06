@@ -1,4 +1,5 @@
 import type { PrismaClient, TripSummary } from "@prisma/client";
+import { fetchRoute } from "../external/osrm";
 
 export interface Insights {
   totalTrips: number;
@@ -16,6 +17,7 @@ export interface Insights {
   crossesCauseway: string | null; // "Woodlands" | "Tuas" if drives reach a checkpoint
   morningPeakHour: number | null; // most common departure hour before noon (SGT)
   eveningPeakHour: number | null; // most common departure hour from noon (SGT)
+  topTrip: { fromLat: number; fromLng: number; toLat: number; toLng: number; count: number } | null;
 }
 
 export interface RecommendationDraft {
@@ -83,6 +85,10 @@ export function computeInsights(trips: TripSummary[]): Insights {
   let erpPeakTrips = 0;
   const destBuckets = new Map<string, { lat: number; lng: number; count: number }>();
   const checkpointHits = new Map<string, number>();
+  const pairBuckets = new Map<
+    string,
+    { fromLat: number; fromLng: number; toLat: number; toLng: number; count: number }
+  >();
 
   for (const t of trips) {
     const h = sgtHour(t.startTime);
@@ -95,6 +101,19 @@ export function computeInsights(trips: TripSummary[]): Insights {
       const b = destBuckets.get(key) ?? { lat: t.endLat, lng: t.endLng, count: 0 };
       b.count++;
       destBuckets.set(key, b);
+    }
+    // Frequent origin->destination pair (for route suggestions).
+    if (t.startLat != null && t.startLng != null && t.endLat != null && t.endLng != null) {
+      const key = `${t.startLat.toFixed(2)},${t.startLng.toFixed(2)}>${t.endLat.toFixed(2)},${t.endLng.toFixed(2)}`;
+      const b = pairBuckets.get(key) ?? {
+        fromLat: t.startLat,
+        fromLng: t.startLng,
+        toLat: t.endLat,
+        toLng: t.endLng,
+        count: 0,
+      };
+      b.count++;
+      pairBuckets.set(key, b);
     }
     // Causeway/Second Link detection: trip start OR end near a checkpoint.
     for (const cp of CHECKPOINTS) {
@@ -148,6 +167,7 @@ export function computeInsights(trips: TripSummary[]): Insights {
     crossesCauseway,
     morningPeakHour: amIdx,
     eveningPeakHour: pmIdx,
+    topTrip: [...pairBuckets.values()].sort((a, b) => b.count - a.count)[0] ?? null,
   };
 }
 
@@ -252,7 +272,26 @@ function formatHour(h: number): string {
  */
 export async function generateForUser(prisma: PrismaClient, userId: string) {
   const trips = await prisma.tripSummary.findMany({ where: { userId } });
-  const drafts = buildRecommendations(computeInsights(trips));
+  const insights = computeInsights(trips);
+  const drafts = buildRecommendations(insights);
+
+  // Alternative-route suggestion for the driver's most frequent trip (OSRM).
+  const tt = insights.topTrip;
+  if (tt && tt.count >= 2) {
+    const plan = await fetchRoute(tt.fromLat, tt.fromLng, tt.toLat, tt.toLng);
+    if (plan) {
+      const alt =
+        plan.alternative && plan.alternative.durationMin <= plan.primary.durationMin + 12
+          ? ` An alternative route is about ${plan.alternative.durationMin} min (${plan.alternative.distanceKm} km) - handy if traffic builds up or ERP is high.`
+          : "";
+      drafts.push({
+        category: "routine",
+        title: "Your usual route",
+        body: `Your usual drive runs about ${plan.primary.durationMin} min (${plan.primary.distanceKm} km).${alt} Check live traffic before you leave.`,
+        score: 75,
+      });
+    }
+  }
 
   const dismissed = await prisma.recommendation.findMany({
     where: { userId, dismissed: true },

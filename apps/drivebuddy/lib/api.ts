@@ -216,6 +216,7 @@ export interface Insights {
   crossesCauseway: string | null;
   morningPeakHour: number | null;
   eveningPeakHour: number | null;
+  topTrip: { fromLat: number; fromLng: number; toLat: number; toLng: number; count: number } | null;
 }
 export interface Recommendation {
   id: string;

@@ -1,4 +1,4 @@
-import { Controller, Get } from "@nestjs/common";
+import { Controller, Get, Query } from "@nestjs/common";
 import { ExternalService } from "./external.service";
 import { ERP_GANTRIES } from "./erp-gantries";
 
@@ -40,5 +40,16 @@ export class ExternalController {
   @Get("erp-gantries")
   erpGantries() {
     return ERP_GANTRIES.map(({ id, name, lat, lng }) => ({ id, name, lat, lng }));
+  }
+
+  /** Driving route + alternative between two points (keyless OSRM). */
+  @Get("route")
+  route(
+    @Query("fromLat") fromLat: string,
+    @Query("fromLng") fromLng: string,
+    @Query("toLat") toLat: string,
+    @Query("toLng") toLng: string,
+  ) {
+    return this.external.route(Number(fromLat), Number(fromLng), Number(toLat), Number(toLng));
   }
 }

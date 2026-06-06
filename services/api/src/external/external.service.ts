@@ -1,4 +1,5 @@
 import { Injectable, Logger } from "@nestjs/common";
+import { fetchRoute, type RoutePlan } from "./osrm";
 
 /** Consistent envelope for every dashboard feed. */
 export interface Feed<T> {
@@ -108,6 +109,18 @@ export class ExternalService {
         lotType: r.LotType,
       })),
     };
+  }
+
+  /** Driving route + alternative between two points (keyless OSRM). */
+  async route(
+    fromLat: number,
+    fromLng: number,
+    toLat: number,
+    toLng: number,
+  ): Promise<Feed<RoutePlan | null>> {
+    const key = `route:${fromLat},${fromLng},${toLat},${toLng}`;
+    const data = await this.cached(key, 10 * 60_000, () => fetchRoute(fromLat, fromLng, toLat, toLng));
+    return { source: "OSRM", lastUpdated: new Date().toISOString(), data };
   }
 
   // Petrol prices have no free public API; the .NET service shipped a static set.
