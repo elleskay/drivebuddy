@@ -38,7 +38,6 @@ Demo account: **`demo@drivebuddy.app`** / **`DriveBuddy123!`** (or tap "Use the 
 ## Table of contents
 
 - [Live demo](#live-demo)
-- [See it drive](#see-it-drive)
 - [Highlights](#highlights)
 - [Screens](#screens)
 - [Features](#features)
@@ -70,17 +69,6 @@ history, recommendations, AI text chat, and profile all work in the browser agai
 backend. The native-only parts (background GPS recording, push, microphone capture) show graceful
 "not available on web" behaviour. The web demo is built and published by the `deploy-web` workflow
 (Expo web export to GitHub Pages).
-
----
-
-## See it drive
-
-The one thing web cannot show is the native hero feature: Journey Mode recording a drive and firing an
-in-drive voice and banner alert as you approach an ERP gantry. Here it is on an Android device.
-
-<p align="center">
-  <img src="docs/demo/drive.gif" alt="Journey Mode: start a drive, the recording pulse, and an in-drive ERP gantry alert" width="300"/>
-</p>
 
 ---
 
