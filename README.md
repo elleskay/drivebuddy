@@ -10,8 +10,18 @@ One Expo app, one NestJS API, fully serverless on AWS. Roughly **$0 to $2 per mo
 
 <img src="docs/screenshots/hero.png" alt="DriveBuddy screens" width="100%"/>
 
+&nbsp;
+
+[![Live demo](https://img.shields.io/badge/Live_demo-open_in_browser-2563eb?style=for-the-badge&logo=expo&logoColor=white)](https://elleskay.github.io/drivebuddy/)
+[![Live API](https://img.shields.io/badge/Live_API-/health-16a34a?style=for-the-badge&logo=amazonaws&logoColor=white)](https://tq7rrvits7.execute-api.ap-southeast-1.amazonaws.com/health)
+
+Demo account: **`demo@drivebuddy.app`** / **`DriveBuddy123!`** (or tap "Use the demo account")
+
+&nbsp;
+
 [![CI](https://github.com/elleskay/drivebuddy/actions/workflows/ci.yml/badge.svg)](https://github.com/elleskay/drivebuddy/actions/workflows/ci.yml)
 [![Deploy API](https://github.com/elleskay/drivebuddy/actions/workflows/deploy-api.yml/badge.svg)](https://github.com/elleskay/drivebuddy/actions/workflows/deploy-api.yml)
+[![Deploy Web](https://github.com/elleskay/drivebuddy/actions/workflows/deploy-web.yml/badge.svg)](https://github.com/elleskay/drivebuddy/actions/workflows/deploy-web.yml)
 [![Security](https://github.com/elleskay/drivebuddy/actions/workflows/security.yml/badge.svg)](https://github.com/elleskay/drivebuddy/actions/workflows/security.yml)
 
 ![Expo](https://img.shields.io/badge/Expo-React_Native-000?logo=expo&logoColor=white)
@@ -28,6 +38,7 @@ One Expo app, one NestJS API, fully serverless on AWS. Roughly **$0 to $2 per mo
 ## Table of contents
 
 - [Live demo](#live-demo)
+- [See it drive](#see-it-drive)
 - [Highlights](#highlights)
 - [Screens](#screens)
 - [Features](#features)
@@ -60,11 +71,15 @@ backend. The native-only parts (background GPS recording, push, microphone captu
 "not available on web" behaviour. The web demo is built and published by the `deploy-web` workflow
 (Expo web export to GitHub Pages).
 
+---
+
+## See it drive
+
 The one thing web cannot show is the native hero feature: Journey Mode recording a drive and firing an
-in-drive voice and banner alert as you approach an ERP gantry. Here it is on an Android device:
+in-drive voice and banner alert as you approach an ERP gantry. Here it is on an Android device.
 
 <p align="center">
-  <img src="docs/demo/drive.gif" alt="Journey Mode: start a drive, the recording pulse, and an in-drive ERP gantry alert" width="280"/>
+  <img src="docs/demo/drive.gif" alt="Journey Mode: start a drive, the recording pulse, and an in-drive ERP gantry alert" width="300"/>
 </p>
 
 ---
@@ -84,36 +99,37 @@ in-drive voice and banner alert as you approach an ERP gantry. Here it is on an 
 
 ## Screens
 
+Captured live from the deployed app running against the production API.
+
 <table>
   <tr>
-    <td align="center"><img src="docs/screenshots/login.png" width="200"/><br/><sub><b>Sign in</b></sub></td>
-    <td align="center"><img src="docs/screenshots/home.png" width="200"/><br/><sub><b>Home</b></sub></td>
-    <td align="center"><img src="docs/screenshots/journey.png" width="200"/><br/><sub><b>Journey Mode</b></sub></td>
+    <td align="center"><img src="docs/mockups/login.png" width="200"/><br/><sub><b>Sign in</b></sub></td>
+    <td align="center"><img src="docs/mockups/home.png" width="200"/><br/><sub><b>Home</b></sub></td>
+    <td align="center"><img src="docs/mockups/journey.png" width="200"/><br/><sub><b>Journey Mode</b></sub></td>
   </tr>
   <tr>
-    <td align="center"><img src="docs/screenshots/journey-alert.png" width="200"/><br/><sub><b>In-drive alert</b></sub></td>
-    <td align="center"><img src="docs/screenshots/trip-summary.png" width="200"/><br/><sub><b>Trip Summary</b></sub></td>
-    <td align="center"><img src="docs/screenshots/dashboard.png" width="200"/><br/><sub><b>Live Info</b></sub></td>
+    <td align="center"><img src="docs/mockups/dashboard.png" width="200"/><br/><sub><b>Live Info</b></sub></td>
+    <td align="center"><img src="docs/mockups/assistant.png" width="200"/><br/><sub><b>AI Assistant</b></sub></td>
+    <td align="center"><img src="docs/mockups/recommendations.png" width="200"/><br/><sub><b>Recommendations</b></sub></td>
   </tr>
   <tr>
-    <td align="center"><img src="docs/screenshots/assistant.png" width="200"/><br/><sub><b>AI Assistant</b></sub></td>
-    <td align="center"><img src="docs/screenshots/recommendations.png" width="200"/><br/><sub><b>Recommendations</b></sub></td>
-    <td align="center"><img src="docs/screenshots/notifications.png" width="200"/><br/><sub><b>Notifications</b></sub></td>
+    <td align="center"><img src="docs/mockups/trip-summary.png" width="200"/><br/><sub><b>Trip Summary</b></sub></td>
+    <td align="center"><img src="docs/mockups/history.png" width="200"/><br/><sub><b>Trip History</b></sub></td>
+    <td align="center"><img src="docs/mockups/vehicles.png" width="200"/><br/><sub><b>My Vehicles</b></sub></td>
   </tr>
   <tr>
-    <td align="center"><img src="docs/screenshots/notification-settings.png" width="200"/><br/><sub><b>Alert Settings</b></sub></td>
-    <td align="center"><img src="docs/screenshots/history.png" width="200"/><br/><sub><b>Trip History</b></sub></td>
-    <td align="center"><img src="docs/screenshots/vehicles.png" width="200"/><br/><sub><b>My Vehicles</b></sub></td>
+    <td align="center"><img src="docs/mockups/notifications.png" width="200"/><br/><sub><b>Notifications</b></sub></td>
+    <td align="center"><img src="docs/mockups/notification-settings.png" width="200"/><br/><sub><b>Alert Settings</b></sub></td>
+    <td align="center"><img src="docs/mockups/profile.png" width="200"/><br/><sub><b>Profile</b></sub></td>
   </tr>
   <tr>
-    <td align="center"><img src="docs/screenshots/profile.png" width="200"/><br/><sub><b>Profile</b></sub></td>
-    <td align="center"><img src="docs/screenshots/settings.png" width="200"/><br/><sub><b>Settings</b></sub></td>
+    <td align="center"><img src="docs/mockups/settings.png" width="200"/><br/><sub><b>Settings</b></sub></td>
+    <td></td>
     <td></td>
   </tr>
 </table>
 
-> Real screenshots from the app running on Android against the live API. Live traffic, ERP and
-> carpark show "add LTA key" placeholders until a DataMall key is configured.
+> Live traffic, ERP and carpark show "add LTA key" placeholders until a DataMall key is configured.
 
 ---
 
@@ -337,7 +353,7 @@ sequenceDiagram
 ## Deployment
 
 CI/CD runs on GitHub Actions with OIDC, so no AWS keys are ever stored. The API deploys through CDK;
-the app ships through EAS.
+the web demo ships through Expo web export to Pages; the app ships through EAS.
 
 ```mermaid
 flowchart LR
@@ -348,23 +364,26 @@ flowchart LR
         CIW["ci: typecheck, lint, build, cdk synth"]
         SEC["security: CodeQL, gitleaks, npm audit"]
         DEP["deploy-api: migrate, build, cdk deploy, smoke test"]
+        WEB["deploy-web: expo export, GitHub Pages"]
         MOB["mobile-build: EAS build / submit / OTA"]
     end
 
     GH --> CIW
     GH --> SEC
     GH -- "main" --> DEP
+    GH -- "main" --> WEB
     GH -- "release" --> MOB
 
     DEP -- "AssumeRole (OIDC)" --> AWS["AWS: CloudFormation / Lambda / API GW / SQS / S3 / EventBridge"]
     DEP -- "prisma migrate deploy" --> NEON[("Neon Postgres")]
+    WEB --> PAGES["GitHub Pages (web demo)"]
     MOB --> STORES["App Store / Play / Expo Update"]
     STORES --> Device["User device"]
 
     classDef ci fill:#e8f0ff,stroke:#2563eb,color:#0f172a;
     classDef tgt fill:#fff7ed,stroke:#f59e0b,color:#0f172a;
-    class CIW,SEC,DEP,MOB ci;
-    class AWS,NEON,STORES tgt;
+    class CIW,SEC,DEP,WEB,MOB ci;
+    class AWS,NEON,PAGES,STORES tgt;
 ```
 
 The CDK app provisions everything in [Physical architecture](#physical-architecture-aws) via the
@@ -515,13 +534,14 @@ and Maestro. See `docs/TESTING.md` and the root `CLAUDE.md` for the full protoco
 | Layer | Choice |
 |---|---|
 | Mobile | Expo / React Native, Expo Router, `expo-location` / `-task-manager` / `-notifications` / `-av` / `-speech` / `-secure-store`, `expo-linear-gradient`, Ionicons |
+| Web demo | Expo web export (react-native-web) on GitHub Pages |
 | API | NestJS 10, class-validator, `@nestjs/jwt` + passport-jwt, bcryptjs |
 | Data | Neon serverless Postgres (Singapore) via Prisma 6 |
 | Compute | AWS Lambda (ARM64, Node 20) behind API Gateway HTTP API |
 | Async | SQS (+ DLQ) worker, EventBridge schedules (daily + hourly) |
 | AI | Anthropic Claude API (LLM), Polly (TTS), Transcribe (STT), S3 scratch |
 | IaC | AWS CDK (TypeScript), the reusable `NestjsApi` construct |
-| CI/CD | GitHub Actions (OIDC, no stored keys): CI, Deploy API (CDK + smoke test), Security, Mobile build (EAS) |
+| CI/CD | GitHub Actions (OIDC, no stored keys): CI, Deploy API (CDK + smoke test), Deploy Web, Security, Mobile build (EAS) |
 | Quality | Spec-driven gate (`@platform/spec-test`), CodeQL, gitleaks, Dependabot |
 
 ---
@@ -543,7 +563,7 @@ drivebuddy/
   infra/cdk/drivebuddy/   CDK app: NestjsApi construct, S3, IAM, EventBridge
   infra/cdk/_setup/       GitHub OIDC deploy role
   packages/spec-test/     spec-coverage gate + runners (vitest/jest/maestro/playwright)
-  docs/                   SETUP, DEPLOY, MOBILE, TESTING, screenshots
+  docs/                   SETUP, DEPLOY, MOBILE, TESTING, screenshots, mockups
 ```
 
 ---
@@ -566,6 +586,7 @@ npm run start:dev               # NestJS on http://localhost:3000
 # 3. app
 cd ../../apps/drivebuddy
 npx expo start                  # press 'i' or 'a', or scan with Expo Go
+npx expo start --web            # or run the web build locally
 ```
 
 The app reads its API base URL from `EXPO_PUBLIC_API_URL` (falling back to `app.json`, key
