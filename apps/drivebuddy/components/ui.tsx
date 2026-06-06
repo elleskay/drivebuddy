@@ -1,10 +1,25 @@
 import { useRef } from "react";
-import { ActivityIndicator, Animated, Pressable, StyleSheet, Text, View, type ViewStyle } from "react-native";
+import {
+  ActivityIndicator,
+  Animated,
+  Platform,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+  type TextStyle,
+  type ViewStyle,
+} from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import { colors, gradients, radius, shadow, spacing, TOUCH_TARGET } from "@/lib/theme";
 
 type IoniconName = React.ComponentProps<typeof Ionicons>["name"];
+
+// On web, a long single word (e.g. "Recommendations") will not wrap by default
+// and overflows its card. break-word lets it wrap. No-op / ignored on native.
+const webBreak =
+  Platform.OS === "web" ? ({ wordBreak: "break-word" } as unknown as TextStyle) : null;
 
 export function Card({
   children,
@@ -126,12 +141,14 @@ export function NavCard({
       <View style={[styles.iconWrap, primary ? styles.iconWrapGrad : { backgroundColor: tint + "1a" }]}>
         <Ionicons name={icon} size={22} color={primary ? "#fff" : tint} />
       </View>
-      <View style={{ flex: 1 }}>
+      <View style={styles.navBody}>
         <View style={styles.navRow}>
-          <Text style={[styles.navTitle, primary && { color: "#fff" }]}>{title}</Text>
+          <Text style={[styles.navTitle, webBreak, primary && { color: "#fff" }]} numberOfLines={2}>
+            {title}
+          </Text>
           {badge != null && badge > 0 ? <Badge value={badge > 99 ? "99+" : badge} /> : null}
         </View>
-        <Text style={[styles.navDesc, primary && { color: "rgba(255,255,255,0.9)" }]} numberOfLines={2}>
+        <Text style={[styles.navDesc, webBreak, primary && { color: "rgba(255,255,255,0.9)" }]} numberOfLines={2}>
           {desc}
         </Text>
       </View>
@@ -210,7 +227,10 @@ const styles = StyleSheet.create({
   navCard: { backgroundColor: colors.surface, borderColor: colors.border, borderWidth: 1, ...shadow },
   iconWrap: { width: 44, height: 44, borderRadius: radius.md, alignItems: "center", justifyContent: "center" },
   iconWrapGrad: { backgroundColor: "rgba(255,255,255,0.22)" },
+  // minWidth:0 lets the text column shrink so long titles wrap instead of
+  // overflowing the card (a no-op on native, required on web flexbox).
+  navBody: { flex: 1, minWidth: 0 },
   navRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8 },
-  navTitle: { color: colors.text, fontSize: 16, fontWeight: "700", flexShrink: 1 },
+  navTitle: { color: colors.text, fontSize: 15, fontWeight: "700", flex: 1, minWidth: 0 },
   navDesc: { color: colors.textMuted, fontSize: 12, marginTop: 1 },
 });
