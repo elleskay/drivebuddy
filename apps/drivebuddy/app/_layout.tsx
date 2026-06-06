@@ -22,8 +22,25 @@ function DeviceFrame({ children }: { children: React.ReactNode }) {
 const webShadow = { boxShadow: "0 0 48px rgba(15,23,42,0.14)" } as unknown as ViewStyle;
 
 const frame = StyleSheet.create({
-  page: { flex: 1, backgroundColor: "#dbe3ee", alignItems: "center" },
-  column: { flex: 1, width: "100%", maxWidth: 430, backgroundColor: "#f5f7fb" },
+  page: {
+    flex: 1,
+    backgroundColor: "#dbe3ee",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 16,
+  },
+  // A phone-shaped window (matches the 1080x2400 device ratio), centered, so the
+  // web demo reads as a mobile app rather than a full-height column. Clamps to
+  // the viewport on smaller screens.
+  column: {
+    width: 412,
+    height: 915,
+    maxWidth: "100%",
+    maxHeight: "100%",
+    backgroundColor: "#f5f7fb",
+    borderRadius: 28,
+    overflow: "hidden",
+  },
 });
 
 function Gate() {
