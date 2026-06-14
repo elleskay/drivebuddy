@@ -18,7 +18,7 @@ The shaping constraints are unusual for a side project. The app must record a dr
 
 - Users should be able to record a drive with GPS, foreground and background, and watch live distance and speed.
 - Users should be able to get voice and on-screen alerts for nearby ERP gantries, traffic, weather, and fuel while driving.
-- Users should be able to see a costed trip summary on stop, fuel plus ERP plus parking, with the route drawn on a map.
+- Users should be able to see a costed trip summary on stop, fuel plus ERP (parking is a reserved field, currently zero), with the route drawn on a map.
 - Users should be able to see a live Singapore dashboard of weather, petrol prices, traffic, ERP, and carpark availability.
 - Users should be able to ask an AI assistant, by voice or text, questions grounded in their profile, vehicles, trips, and the live data.
 - Users should be able to manage multiple vehicles and a profile, and sign in with email and password.
@@ -58,23 +58,80 @@ Nine Prisma models on Neon Postgres. A user owns everything below it, and a driv
 
 ### API or System Interface
 
-A REST API behind an API Gateway HTTP API. Every route except auth takes a bearer JWT, and responses are JSON. The core endpoints:
+A REST API behind an API Gateway HTTP API, JSON in and out. Every route takes a bearer JWT except the three auth routes and the public `/external` and `/health` routes. The user id always comes from the JWT, never the body. The core endpoints:
+
+Auth endpoints (register/login/refresh). These three are the only unauthenticated POSTs: register creates an account and hands back the first token pair, login exchanges credentials for a fresh pair, and refresh trades a still-valid refreshToken for a new access/refresh pair so a session can outlive a short-lived access token. POST throughout because each call creates server-side state (a new user or a new token pair), not a read.
 
 ```
-POST /auth/register, /auth/login, /auth/refresh      issue and refresh JWTs
-POST /drive-monitor/routes                start a drive, returns the route id
-POST /drive-monitor/routes/{id}/points    append a batch of GPS points
-POST /drive-monitor/routes/{id}/complete  stop and cost the drive, returns the trip summary
-GET  /trips, /trips/{id}                  trip history, or one trip with its points
-GET  /external/dashboard/{source}         live weather, petrol, traffic, ERP, carpark, one per source, cached
-POST /ai/ask, /ai/voice                   ask by text or voice, grounded answer
-vehicles, notifications                   CRUD vehicles, plus notification list, read, and settings
+POST /auth/register -> { accessToken, refreshToken }
+Body: {
+  email, password, fullName
+}
+POST /auth/login -> { accessToken, refreshToken }
+Body: {
+  email, password
+}
+POST /auth/refresh -> { accessToken, refreshToken }
+Body: {
+  refreshToken
+}
+```
+
+Drive-monitor lifecycle (routes/points/complete). This is the recording path: the first POST opens a route and returns its id, the points POST appends a batch of GPS samples to that route (the app buffers on device and sends them in groups rather than one request per fix), and the complete POST stops the drive and triggers costing, returning the TripSummary. All three are POST because each one mutates the route: it is created, extended, then finalised, none of which is a cacheable read.
+
+```
+POST /drive-monitor/routes -> Route (start a drive, returns the route id)
+Body: {
+  name?
+}
+POST /drive-monitor/routes/{id}/points -> Success
+Body: {
+  points: [ { latitude, longitude, timestamp, altitude?, speed?, accuracy? } ]
+}
+POST /drive-monitor/routes/{id}/complete -> { route, summary } (stop and cost the drive, no body)
+```
+
+Trip history (list/get). The collection route returns the caller's completed trips and the item route returns a single trip summary (the full GPS point track comes from the drive-monitor route). Both are GET because they only read stored trips, and the user id is taken from the JWT so a caller only ever sees their own.
+
+```
+GET /trips -> Trip[]
+GET /trips/{id} -> Trip
+```
+
+External dashboard feeds (one route per source). A single GET fronts the live Singapore data feeds (weather, traffic, ERP, carpark, petrol), returning the server-cached snapshot the app overlays during a drive. It is public (no JWT) and a GET because the data is shared and read-only, which is exactly what lets the server cache one copy and serve every driver from it.
+
+```
+GET /external/dashboard/{weather|traffic|erp|carpark|petrol} -> Dashboard
+```
+
+Assistant text endpoint (/ai/ask). A POST sends a typed question, and the server grounds it in the caller's profile, vehicles, recent trips, and the live feeds before answering, optionally returning spoken audio when speak is set. POST because each ask drives fresh server-side work (context assembly and a model call), not a cacheable lookup.
+
+```
+POST /ai/ask -> Answer
+Body: {
+  text, speak?
+}
+```
+
+Assistant voice endpoint (/ai/voice). A POST carries a base64 audio clip, and the server runs the hands-free pipeline (store the clip, transcribe it, answer against the same grounded context, then synthesize speech) so the driver can talk and listen without touching the screen. POST because the body is a sizeable upload that kicks off real processing, which would not fit a GET.
+
+```
+POST /ai/voice -> Answer
+Body: {
+  audioBase64, format?, speak?
+}
+```
+
+Vehicles and notifications. Vehicles are full CRUD over the collapsed verb set: GET to list, POST to add, PATCH to edit (for example marking the main vehicle whose fuel consumption drives cost), and DELETE to remove. Notifications use the same shape for list, mark-read, and settings, with mark-read as a POST and settings as a PATCH chosen over PUT so a single preference can change without resending the whole object.
+
+```
+GET/POST/PATCH/DELETE /vehicles, /notifications
 ```
 
 The one shape worth showing is the costed trip, returned on complete:
 
 ```json
-{ "distanceKm": 12.4, "durationMin": 26, "fuelCost": 3.10, "erpCost": 2.00, "parkingCost": 1.20 }
+{ "distanceKm": 12.4, "durationMin": 26, "fuelCost": 3.10, "erpCost": 2.00, "parkingCost": 0.00 }
 ```
 
 ---
@@ -85,77 +142,121 @@ We build the design one functional requirement at a time.
 
 ### 1) A user can record a drive and watch it live
 
-The app starts a drive, then samples GPS in both the foreground and a background task so recording continues with the screen off. Points are batched and posted to the API, which appends them and keeps a running distance and speed. The diagram below is the whole drive, including the cost step from requirement three.
+The app starts a drive, then samples GPS in both the foreground and a background task so recording continues with the screen off. Points are batched and posted to the API, which appends them and keeps a running distance and speed.
+
+We start with the recording path: the app and the API over a JWT, points appended to the database.
 
 ```mermaid
-flowchart TD
-    Start[User starts drive] --> Create[POST /drive-monitor/routes, create an active route]
-    Create --> Loop[While driving, sample GPS fg and bg]
-    Loop --> Batch["POST /drive-monitor/routes/{id}/points, batched"]
-    Batch --> Append[Append points, update distance and speed]
-    Loop --> Stop[User ends drive]
-    Stop --> Complete["POST /drive-monitor/routes/{id}/complete"]
-    Complete --> Cost[Compute fuel, ERP, and parking]
-    Cost --> Summary[Write TripSummary, return route and cost]
+flowchart LR
+  App["Expo app<br/>- samples GPS fg and bg<br/>- batches points on device"]
+  API["HTTP Lambda (NestJS)<br/>- appends points<br/>- running distance and speed"]
+  Neon[("Neon Postgres")]
+  App -->|JWT| API
+  App -->|"start, batched points, complete"| API
+  API --> Neon
 ```
 
 ### 2) The app gives in-drive alerts
 
 While driving, the app checks nearby ERP gantries, traffic, weather, and fuel against the live data, and raises a voice alert and an on-screen banner as the driver approaches each one, so the driver is informed without looking at the screen.
 
+We add the live-data feeds and the in-drive alerts they raise.
+
+```mermaid
+flowchart LR
+  App["Expo app<br/>- samples GPS fg and bg<br/>- voice alerts and banners<br/>- ERP, traffic, weather, fuel"]
+  API["HTTP Lambda (NestJS)<br/>- appends points<br/>- running distance and speed<br/>- caches live data"]
+  Neon[("Neon Postgres")]
+  LTA{"data.gov.sg / LTA DataMall"}
+  App -->|JWT| API
+  API --> Neon
+  API -->|"live data, cached"| LTA
+  LTA -->|"in-drive alerts"| App
+```
+
 ### 3) The drive is costed into a trip summary on stop
 
-On complete, the API computes fuel from the main vehicle's consumption over the driven distance, the ERP charge from the gantries passed, and parking, then writes one TripSummary per route. The app renders the route over OpenStreetMap raster tiles with an itemised cost, which keeps the map keyless.
+On complete, the API computes fuel from the main vehicle's consumption over the driven distance and the ERP charge from the gantries passed (parking is a reserved field, currently zero), then writes one TripSummary per route. The app renders the route over OpenStreetMap raster tiles with an itemised cost, which keeps the map keyless.
+
+We add the cost step on stop and the map the trip renders on.
+
+```mermaid
+flowchart LR
+  App["Expo app<br/>- voice alerts and banners<br/>- renders route on OSM tiles<br/>- itemised cost"]
+  API["HTTP Lambda (NestJS)<br/>- appends points<br/>- running distance and speed<br/>- Compute fuel and ERP<br/>- writes one TripSummary per route"]
+  Neon[("Neon Postgres")]
+  Summary[("TripSummary per route")]
+  LTA{"data.gov.sg / LTA DataMall"}
+  App -->|JWT| API
+  API --> Neon
+  API -->|"live data, cached"| LTA
+  LTA -->|"in-drive alerts"| App
+  API -->|"on complete"| Summary
+  Summary -->|"route and itemised cost"| App
+```
 
 ### 4) A user can ask an AI assistant by voice or text
 
 For text, the API builds a context from the user's profile, vehicles, recent trips, and the live data, then asks Claude. For voice, the clip is stored briefly in S3, Transcribe turns it into text, Claude answers against the same context, and Polly turns the answer into speech, so the driver can talk and listen hands-free.
 
+We add the assistant. The voice path stores a clip, transcribes it, answers against the same context, and speaks the reply back.
+
 ```mermaid
-flowchart TD
-    Talk[User holds to talk] --> Post[POST /ai/voice with audio]
-    Post --> StoreClip[Store clip in S3]
-    StoreClip --> STT[Transcribe to text]
-    STT --> Ctx[Build context from profile, trips, live data]
-    Ctx --> LLM[Claude drafts an answer]
-    LLM --> TTS[Polly synthesizes speech]
-    TTS --> Reply[Return transcript, answer, and audio]
-    Reply --> Play[App shows the reply and plays the voice]
+flowchart LR
+  App["Expo app<br/>- voice alerts and banners<br/>- hold to talk<br/>- plays back spoken reply"]
+  API["HTTP Lambda (NestJS)<br/>- Compute fuel and ERP<br/>- builds context from profile, trips, live data<br/>- orchestrates voice pipeline"]
+  Neon[("Neon Postgres")]
+  Summary[("TripSummary per route")]
+  Clip[("S3 audio scratch, 1-day expiry")]
+  LTA{"data.gov.sg / LTA DataMall"}
+  STT{"Transcribe"}
+  Claude{"Anthropic Claude"}
+  TTS{"Polly"}
+  App -->|JWT| API
+  API --> Neon
+  API -->|"live data, cached"| LTA
+  LTA -->|"in-drive alerts"| App
+  API -->|"on complete"| Summary
+  App -->|"hold to talk, POST /ai/voice"| API
+  API -->|"store clip"| Clip
+  Clip -->|"audio"| STT
+  STT -->|"text plus context"| Claude
+  Claude -->|"answer"| TTS
+  TTS -->|"speech"| App
 ```
 
 ### 5) Notifications and scheduled intelligence run asynchronously
 
 Push fan-out, the daily history analysis, and the hourly pre-drive sweep never run on the request path. The HTTP Lambda enqueues a job, EventBridge fires the schedules, and a separate worker Lambda drains the queue in batches.
 
+We add the async tier off the request path. That completes the logical design (the voice pipeline from step four is collapsed into one node here for the whole-system view).
+
 ```mermaid
 flowchart LR
-    HTTP[HTTP Lambda enqueues a job] --> Q[SQS queue]
-    Sched[EventBridge daily and hourly] --> Q
-    Q --> W[Worker Lambda, batch of 10]
-    W -->|fails 5 receives| DLQ[(Dead-letter queue)]
-    W -->|ok| Push[Expo Push to the device]
-```
-
-### Physical deployment
-
-Everything is serverless and scales to zero. No VPC, NAT, load balancer, or always-on database.
-
-```mermaid
-flowchart TB
-    App[Expo app on device] -->|HTTPS and JWT| APIGW[API Gateway HTTP API]
-    APIGW --> HTTP[HTTP Lambda, NestJS, ARM64 512MB]
-    HTTP -->|Prisma pooled| NEON[(Neon Postgres, Singapore)]
-    HTTP -->|enqueue push| SQS[SQS queue plus DLQ]
-    HTTP -->|store clips| S3[(S3 audio scratch, 1-day expiry)]
-    HTTP -->|TTS and STT| AISVC[Polly and Transcribe]
-    HTTP -->|LLM over HTTPS| CLAUDE[Anthropic Claude API]
-    HTTP -->|open data| EXT[data.gov.sg and LTA DataMall]
-    EB1[EventBridge daily 2am SGT] -->|analyze-all| SQS
-    EB2[EventBridge hourly] -->|pre-drive sweep| SQS
-    SQS --> WORKER[Worker Lambda, ARM64 1024MB, batch 10]
-    WORKER -->|Prisma| NEON
-    WORKER -->|send push| EXPO[Expo Push service]
-    EXPO --> App
+  App["Expo app<br/>- voice alerts and banners<br/>- hold to talk<br/>- receives push"]
+  API["HTTP Lambda (NestJS)<br/>- Compute fuel and ERP<br/>- enqueues async jobs"]
+  Worker["Worker Lambda<br/>- batch of 10<br/>- partial-batch failures<br/>- runs push and scheduled work"]
+  Neon[("Neon Postgres")]
+  Summary[("TripSummary per route")]
+  DLQ[("Dead-letter queue")]
+  SQS(["SQS queue"])
+  EB["EventBridge<br/>- daily history analysis<br/>- hourly pre-drive sweep"]
+  LTA{"data.gov.sg / LTA DataMall"}
+  AI{"S3 clip, Transcribe, Claude, Polly"}
+  Push{"Expo Push"}
+  App -->|JWT| API
+  API --> Neon
+  API --> LTA
+  API -->|"on complete"| Summary
+  API -->|"voice or text"| AI
+  AI --> App
+  API -->|enqueue| SQS
+  EB --> SQS
+  SQS -->|"batch of 10"| Worker
+  Worker -->|"fails 5 receives"| DLQ
+  Worker --> Neon
+  Worker --> Push
+  Push --> App
 ```
 
 ---
@@ -274,13 +375,44 @@ Prove those requirements with committed real-device evidence that is checksum-st
 
 ---
 
+## The complete design
+
+Pulling the high-level design and the deep dives together, here is the whole system in one view. Everything is serverless and scales to zero, no VPC, NAT, or load balancer: an API Gateway HTTP API, ARM64 Lambdas (HTTP 512MB, worker 1024MB), Neon Postgres in Singapore, and S3 audio scratch on a 1-day expiry.
+
+```mermaid
+flowchart LR
+  App["Expo app<br/>- GPS fg and bg<br/>- voice and push"]
+  API["HTTP Lambda (NestJS)<br/>- ARM64 512MB<br/>- routes, points, complete<br/>- enqueues async jobs"]
+  Worker["Worker Lambda<br/>- ARM64 1024MB<br/>- batch of 10<br/>- push and scheduled work"]
+  Neon[("Neon Postgres, Singapore")]
+  S3[("S3 audio scratch, 1-day expiry")]
+  DLQ[("Dead-letter queue")]
+  SQS(["SQS queue"])
+  EB["EventBridge<br/>- daily history analysis<br/>- hourly pre-drive sweep"]
+  LTA{"data.gov.sg / LTA"}
+  AI{"Transcribe, Claude, Polly"}
+  Push{"Expo Push"}
+  App -->|JWT| API
+  API --> Neon
+  API --> LTA
+  API --> S3
+  API --> AI
+  API -->|enqueue| SQS
+  EB --> SQS
+  SQS -->|"batch of 10"| Worker
+  Worker -->|"fails 5 receives"| DLQ
+  Worker --> Neon
+  Worker --> Push
+  Push --> App
+```
+
 ## Tech stack
 
 | Layer | Tech |
 |---|---|
 | Mobile | Expo and React Native, Expo Router, expo-location, expo-task-manager, expo-notifications, expo-speech, expo-secure-store |
 | Web demo | Expo web export with react-native-web on GitHub Pages |
-| API | NestJS 10, class-validator, JWT with passport, bcrypt |
+| API | NestJS 10, class-validator, JWT with passport, bcryptjs |
 | Data | Neon serverless Postgres (Singapore) via Prisma 6 |
 | Compute | AWS Lambda (ARM64, Node 20) behind an API Gateway HTTP API |
 | Async | SQS with a dead-letter queue, EventBridge daily and hourly schedules |
