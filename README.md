@@ -1,612 +1,294 @@
-<div align="center">
+# DriveBuddy System Design
 
-# DriveBuddy
-
-### Your AI-powered driving companion for Singapore
-
-Live drive tracking, post-trip cost breakdowns, real-time ERP / traffic / weather / parking,
-push alerts, an AI voice assistant, and behaviour-based recommendations.
-One Expo app, one NestJS API, fully serverless on AWS. Roughly **$0 to $2 per month**.
-
-<img src="docs/screenshots/hero.png" alt="DriveBuddy screens" width="100%"/>
-
-&nbsp;
-
-[![Live demo](https://img.shields.io/badge/Live_demo-open_in_browser-2563eb?style=for-the-badge&logo=expo&logoColor=white)](https://elleskay.github.io/drivebuddy/)
-[![Live API](https://img.shields.io/badge/Live_API-/health-16a34a?style=for-the-badge&logo=amazonaws&logoColor=white)](https://tq7rrvits7.execute-api.ap-southeast-1.amazonaws.com/health)
-
-Demo account: **`demo@drivebuddy.app`** / **`DriveBuddy123!`** (or tap "Use the demo account")
-
-&nbsp;
-
-[![CI](https://github.com/elleskay/drivebuddy/actions/workflows/ci.yml/badge.svg)](https://github.com/elleskay/drivebuddy/actions/workflows/ci.yml)
-[![Deploy API](https://github.com/elleskay/drivebuddy/actions/workflows/deploy-api.yml/badge.svg)](https://github.com/elleskay/drivebuddy/actions/workflows/deploy-api.yml)
-[![Deploy Web](https://github.com/elleskay/drivebuddy/actions/workflows/deploy-web.yml/badge.svg)](https://github.com/elleskay/drivebuddy/actions/workflows/deploy-web.yml)
-[![Security](https://github.com/elleskay/drivebuddy/actions/workflows/security.yml/badge.svg)](https://github.com/elleskay/drivebuddy/actions/workflows/security.yml)
-
-![Expo](https://img.shields.io/badge/Expo-React_Native-000?logo=expo&logoColor=white)
-![NestJS](https://img.shields.io/badge/NestJS-10-E0234E?logo=nestjs&logoColor=white)
-![Prisma](https://img.shields.io/badge/Prisma-6-2D3748?logo=prisma&logoColor=white)
-![Neon](https://img.shields.io/badge/Neon-Postgres-00E699?logo=postgresql&logoColor=white)
-![AWS Lambda](https://img.shields.io/badge/AWS-Lambda_·_API_GW_·_SQS-FF9900?logo=awslambda&logoColor=white)
-![Claude](https://img.shields.io/badge/Anthropic-Claude_API-D97757)
-
-</div>
+> A system design breakdown of DriveBuddy, an AI driving companion for Singapore. It records your drive in the background, costs every trip, surfaces live ERP, traffic, weather, and parking, answers questions by voice, and runs almost entirely scale-to-zero for roughly zero to two dollars a month.
+>
+> **Live demo** at https://elleskay.github.io/drivebuddy/ with the account demo@drivebuddy.app and password DriveBuddy123!
+>
+> **Live API health** at https://tq7rrvits7.execute-api.ap-southeast-1.amazonaws.com/health
 
 ---
 
-## Table of contents
+## Understanding the Problem
 
-- [Live demo](#live-demo)
-- [Highlights](#highlights)
-- [Screens](#screens)
-- [Features](#features)
-- [App flow](#app-flow)
-- [Logical architecture](#logical-architecture)
-- [Physical architecture (AWS)](#physical-architecture-aws)
-- [Key sequences](#key-sequences)
-- [Deployment](#deployment)
-- [Database design](#database-design)
-- [Spec-driven development](#spec-driven-development)
-- [Tech stack](#tech-stack)
-- [Monorepo layout](#monorepo-layout)
-- [Getting started](#getting-started)
-- [Cost](#cost)
-- [Status and roadmap](#status-and-roadmap)
+DriveBuddy is one Expo app backed by one NestJS API. It records a real drive with GPS, talks to the driver as they approach an ERP gantry or heavy traffic, costs the trip on stop, shows live Singapore driving data, and answers questions by voice or text grounded in the driver's own history.
 
----
+The shaping constraints are unusual for a side project. The app must record a drive accurately while the phone is locked in a pocket, without draining the battery, and the whole backend must cost almost nothing when no one is driving. Those two pressures, reliable background capture and near-zero idle cost, drive most of the design.
 
-## Live demo
+### Functional Requirements
 
-| | |
-|---|---|
-| **Web app** | https://elleskay.github.io/drivebuddy/ (the real React Native screens via react-native-web, running against the live API) |
-| **Demo account** | `demo@drivebuddy.app` / `DriveBuddy123!` (or tap "Use the demo account" on the web login) |
-| **Live API health** | https://tq7rrvits7.execute-api.ap-southeast-1.amazonaws.com/health |
+- Users should be able to record a drive with GPS, foreground and background, and watch live distance and speed.
+- Users should be able to get voice and on-screen alerts for nearby ERP gantries, traffic, weather, and fuel while driving.
+- Users should be able to see a costed trip summary on stop, fuel plus ERP plus parking, with the route drawn on a map.
+- Users should be able to see a live Singapore dashboard of weather, petrol prices, traffic, ERP, and carpark availability.
+- Users should be able to ask an AI assistant, by voice or text, questions grounded in their profile, vehicles, trips, and the live data.
+- Users should be able to manage multiple vehicles and a profile, and sign in with email and password.
 
-DriveBuddy is a native app, so the web build is a UI tour: auth, home, the live dashboard, vehicles,
-history, recommendations, AI text chat, and profile all work in the browser against the deployed
-backend. The native-only parts (background GPS recording, push, microphone capture) show graceful
-"not available on web" behaviour. The web demo is built and published by the `deploy-web` workflow
-(Expo web export to GitHub Pages).
+Out of scope: turn-by-turn navigation (the trip map draws the recorded route over keyless OpenStreetMap tiles), multi-user and social features, and any always-on infrastructure.
+
+### Non-Functional Requirements
+
+- The backend should cost roughly $0 to $2 a month with light use, which means scale-to-zero everywhere.
+- Background recording should sample GPS about once a second and survive a locked screen and brief signal loss without dropping points or flattening the battery, by buffering and flushing in small batches.
+- Live data should paint immediately, served from cache and refreshed on pull.
+- Async work, push fan-out and scheduled jobs, should retry on failure and dead-letter after 5 attempts, so nothing is silently lost.
+- Location and auth data should be handled securely, with JWT access and refresh tokens and least-privilege IAM.
+- The system should be deterministically testable despite native device behaviour and a non-deterministic model.
 
 ---
 
-## Highlights
+## The Set Up
 
-| | |
-|---|---|
-| **Records real drives** | Foreground + background GPS via an Android foreground service, batched to the API, with live distance and speed. |
-| **Talks while you drive** | In-drive voice and banner alerts for ERP gantries, traffic, weather and fuel as you approach them. |
-| **Costs every trip** | Post-trip fuel + ERP + parking breakdown, route drawn on a keyless OpenStreetMap map. |
-| **Answers out loud** | Voice and text AI assistant grounded in your trips plus live Singapore data. |
-| **Learns your patterns** | A nightly job mines your history for routines and tips, and warns you before your usual drive. |
-| **Costs almost nothing** | Scale-to-zero Lambda + a free Neon tier: about $0 to $2 a month. No Fargate, NAT, ALB, or idle DB. |
+### Planning the Approach
 
----
+DriveBuddy is one mobile client and one NestJS API, and the key trick is that the same API binary has two entry points, an HTTP handler and a queue worker. Durable user data lives in a serverless Postgres. Anything slow or scheduled, push fan-out, the nightly history analysis, the hourly pre-drive sweep, is pushed onto a queue so the request path stays fast. Because near-zero idle cost is a first-class requirement, every piece is serverless and scales to zero, with no load balancer, no NAT, and no always-on database.
 
-## Screens
+### Defining the Core Entities
 
-Captured live from the deployed app running against the production API.
+Nine Prisma models on Neon Postgres. A user owns everything below it, and a drive owns its points and its single summary.
 
-<table>
-  <tr>
-    <td align="center"><img src="docs/mockups/login.png" width="200"/><br/><sub><b>Sign in</b></sub></td>
-    <td align="center"><img src="docs/mockups/home.png" width="200"/><br/><sub><b>Home</b></sub></td>
-    <td align="center"><img src="docs/mockups/journey.png" width="200"/><br/><sub><b>Journey Mode</b></sub></td>
-  </tr>
-  <tr>
-    <td align="center"><img src="docs/mockups/dashboard.png" width="200"/><br/><sub><b>Live Info</b></sub></td>
-    <td align="center"><img src="docs/mockups/assistant.png" width="200"/><br/><sub><b>AI Assistant</b></sub></td>
-    <td align="center"><img src="docs/mockups/recommendations.png" width="200"/><br/><sub><b>Recommendations</b></sub></td>
-  </tr>
-  <tr>
-    <td align="center"><img src="docs/mockups/trip-summary.png" width="200"/><br/><sub><b>Trip Summary</b></sub></td>
-    <td align="center"><img src="docs/mockups/history.png" width="200"/><br/><sub><b>Trip History</b></sub></td>
-    <td align="center"><img src="docs/mockups/vehicles.png" width="200"/><br/><sub><b>My Vehicles</b></sub></td>
-  </tr>
-  <tr>
-    <td align="center"><img src="docs/mockups/notifications.png" width="200"/><br/><sub><b>Notifications</b></sub></td>
-    <td align="center"><img src="docs/mockups/notification-settings.png" width="200"/><br/><sub><b>Alert Settings</b></sub></td>
-    <td align="center"><img src="docs/mockups/profile.png" width="200"/><br/><sub><b>Profile</b></sub></td>
-  </tr>
-  <tr>
-    <td align="center"><img src="docs/mockups/settings.png" width="200"/><br/><sub><b>Settings</b></sub></td>
-    <td></td>
-    <td></td>
-  </tr>
-</table>
+- **User**, the account, holding email, password hash, name, and provider.
+- **Vehicle**, one of the user's vehicles, holding the plate, fuel type, consumption, and a main flag.
+- **DrivingRoute**, one recorded drive, holding an active flag, total distance, average speed, and start and end times.
+- **RoutePoint**, one GPS sample on a route, holding timestamp, latitude, longitude, and speed.
+- **TripSummary**, the costed result of a drive, holding distance, duration, and the ERP, fuel, and parking costs.
+- **Notification**, one message to the user, holding a type, title, body, and read flag.
+- **NotificationSettings**, the user's per-type and per-channel toggles.
+- **Recommendation**, one insight or tip, holding a category, a score, and a dismissed flag.
+- **DeviceToken**, a registered push token for one device.
 
-> Live traffic, ERP and carpark show "add LTA key" placeholders until a DataMall key is configured.
+### API or System Interface
+
+A REST API behind an API Gateway HTTP API. Every route except auth takes a bearer JWT, and responses are JSON. The core endpoints:
+
+```
+POST /auth/register, /auth/login, /auth/refresh      issue and refresh JWTs
+POST /drive-monitor/routes                start a drive, returns the route id
+POST /drive-monitor/routes/{id}/points    append a batch of GPS points
+POST /drive-monitor/routes/{id}/complete  stop and cost the drive, returns the trip summary
+GET  /trips, /trips/{id}                  trip history, or one trip with its points
+GET  /external/dashboard/{source}         live weather, petrol, traffic, ERP, carpark, one per source, cached
+POST /ai/ask, /ai/voice                   ask by text or voice, grounded answer
+vehicles, notifications                   CRUD vehicles, plus notification list, read, and settings
+```
+
+The one shape worth showing is the costed trip, returned on complete:
+
+```json
+{ "distanceKm": 12.4, "durationMin": 26, "fuelCost": 3.10, "erpCost": 2.00, "parkingCost": 1.20 }
+```
 
 ---
 
-## Features
+## High-Level Design
 
-| Feature | What it does |
-|---|---|
-| **Journey Mode** | Records your drive with foreground and background GPS (`expo-location` + `expo-task-manager`, via an Android foreground service so it keeps recording with the screen off), batches points to the API, computes live distance/speed, and gives in-drive voice (`expo-speech`) and on-screen banner alerts for ERP gantries, traffic, weather and fuel as you drive. |
-| **Post-trip summary** | On stop, generates a trip summary with the driven route drawn on an OpenStreetMap map (keyless raster tiles, no Google dependency) and an itemised cost breakdown: fuel (from your main vehicle's consumption over the distance), ERP, and parking. |
-| **Live Info dashboard** | Singapore data in one place: 2-hour weather (data.gov.sg), petrol prices, and live traffic, ERP and carpark availability (LTA DataMall). Pull to refresh, cached. |
-| **AI Assistant** | A voice and text assistant for Singapore driving questions: the Anthropic Claude API for answers, Polly for spoken replies, Transcribe for voice input, grounded in your profile, vehicles, trips and live data. |
-| **Notifications and push** | In-app notification center plus Expo push. Four types (pre-drive, real-time, post-trip, system) and five alert channels (speed, hazard, ERP, traffic, weather), each individually toggleable. |
-| **Recommendations** | Behaviour insights (totals, average cost, weekly trend, peak hour, busiest day, frequent destinations) and grounded tips, refreshed by a daily background job. |
-| **Pre-drive intelligence** | An hourly sweep sends a heads-up about an hour before your usual departure time (weather, traffic, ERP-peak), capped at one per day. |
-| **Vehicles and profile** | Manage multiple vehicles (Petrol / Hybrid / Electric, consumption, main vehicle) and your profile. |
-| **Auth** | App-issued JWT (email and password) with access and refresh tokens, stored in `expo-secure-store`. |
+We build the design one functional requirement at a time.
 
----
+### 1) A user can record a drive and watch it live
 
-## App flow
-
-How a user moves through the app, from first launch to a costed trip and beyond.
+The app starts a drive, then samples GPS in both the foreground and a background task so recording continues with the screen off. Points are batched and posted to the API, which appends them and keeps a running distance and speed. The diagram below is the whole drive, including the cost step from requirement three.
 
 ```mermaid
 flowchart TD
-    A([Launch]) --> B{Signed in?}
-    B -- no --> L["Login / Register"]
-    L --> H
-    B -- yes --> H["Home<br/>weekly stats + quick actions"]
-
-    H --> J["Journey Mode"]
-    H --> D["Live Info dashboard"]
-    H --> AI["AI Assistant"]
-    H --> R["Recommendations"]
-    H --> N["Notifications"]
-    H --> V["Vehicles / Profile / Settings"]
-
-    J --> J1["Start drive<br/>GPS recording begins"]
-    J1 --> J2["In-drive alerts<br/>ERP / traffic / weather / fuel"]
-    J2 --> J3["End drive"]
-    J3 --> T["Trip Summary<br/>map + fuel/ERP/parking cost"]
-    T --> HIS["Trip History"]
-
-    R --> REC["Insights + grounded tips"]
-    N --> NS["Alert settings<br/>4 types, 5 channels"]
-
-    classDef hub fill:#e8f0ff,stroke:#2563eb,color:#0f172a;
-    classDef trip fill:#eef2f9,stroke:#7c3aed,color:#0f172a;
-    class H hub;
-    class J,J1,J2,J3,T trip;
+    Start[User starts drive] --> Create[POST /drive-monitor/routes, create an active route]
+    Create --> Loop[While driving, sample GPS fg and bg]
+    Loop --> Batch["POST /drive-monitor/routes/{id}/points, batched"]
+    Batch --> Append[Append points, update distance and speed]
+    Loop --> Stop[User ends drive]
+    Stop --> Complete["POST /drive-monitor/routes/{id}/complete"]
+    Complete --> Cost[Compute fuel, ERP, and parking]
+    Cost --> Summary[Write TripSummary, return route and cost]
 ```
 
----
+### 2) The app gives in-drive alerts
 
-## Logical architecture
+While driving, the app checks nearby ERP gantries, traffic, weather, and fuel against the live data, and raises a voice alert and an on-screen banner as the driver approaches each one, so the driver is informed without looking at the screen.
 
-One Expo client, one NestJS API composed of feature modules, one Postgres database, and a small set
-of AWS and external services. The same API binary serves HTTP requests and drains a queue.
+### 3) The drive is costed into a trip summary on stop
+
+On complete, the API computes fuel from the main vehicle's consumption over the driven distance, the ERP charge from the gantries passed, and parking, then writes one TripSummary per route. The app renders the route over OpenStreetMap raster tiles with an itemised cost, which keeps the map keyless.
+
+### 4) A user can ask an AI assistant by voice or text
+
+For text, the API builds a context from the user's profile, vehicles, recent trips, and the live data, then asks Claude. For voice, the clip is stored briefly in S3, Transcribe turns it into text, Claude answers against the same context, and Polly turns the answer into speech, so the driver can talk and listen hands-free.
+
+```mermaid
+flowchart TD
+    Talk[User holds to talk] --> Post[POST /ai/voice with audio]
+    Post --> StoreClip[Store clip in S3]
+    StoreClip --> STT[Transcribe to text]
+    STT --> Ctx[Build context from profile, trips, live data]
+    Ctx --> LLM[Claude drafts an answer]
+    LLM --> TTS[Polly synthesizes speech]
+    TTS --> Reply[Return transcript, answer, and audio]
+    Reply --> Play[App shows the reply and plays the voice]
+```
+
+### 5) Notifications and scheduled intelligence run asynchronously
+
+Push fan-out, the daily history analysis, and the hourly pre-drive sweep never run on the request path. The HTTP Lambda enqueues a job, EventBridge fires the schedules, and a separate worker Lambda drains the queue in batches.
 
 ```mermaid
 flowchart LR
-    subgraph Client["Mobile client"]
-        EX["Expo / React Native app<br/>Expo Router, secure-store, push"]
-    end
-
-    subgraph API["NestJS API (single codebase)"]
-        direction TB
-        GW["HTTP entry (lambda.ts)"]
-        WK["Worker entry (worker.ts)"]
-        subgraph MODS["Feature modules"]
-            M1["auth · users · vehicles"]
-            M2["drive-monitor · trips"]
-            M3["external · route-analysis"]
-            M4["notifications · ai · health"]
-        end
-        GW --> MODS
-        WK --> MODS
-    end
-
-    subgraph Data["Data"]
-        PG[("Neon Postgres<br/>Prisma 6")]
-    end
-
-    subgraph Ext["External services"]
-        CLA["Anthropic Claude API"]
-        AWS["Polly (TTS) · Transcribe (STT) · S3"]
-        SG["data.gov.sg · LTA DataMall"]
-        PUSH["Expo Push service"]
-    end
-
-    EX -- "HTTPS + JWT" --> GW
-    MODS --> PG
-    M4 --> CLA
-    M4 --> AWS
-    M3 --> SG
-    WK --> PUSH
-
-    classDef c fill:#e8f0ff,stroke:#2563eb,color:#0f172a;
-    classDef d fill:#dcfce7,stroke:#16a34a,color:#0f172a;
-    classDef e fill:#f5f3ff,stroke:#7c3aed,color:#0f172a;
-    class EX c;
-    class PG d;
-    class CLA,AWS,SG,PUSH e;
+    HTTP[HTTP Lambda enqueues a job] --> Q[SQS queue]
+    Sched[EventBridge daily and hourly] --> Q
+    Q --> W[Worker Lambda, batch of 10]
+    W -->|fails 5 receives| DLQ[(Dead-letter queue)]
+    W -->|ok| Push[Expo Push to the device]
 ```
 
-**Modules.** `auth` (JWT access + refresh, bcrypt), `users`, `vehicles`, `drive-monitor` (GPS batch
-ingestion), `trips` (post-trip cost summaries), `external` (Singapore open data + ERP cost calc),
-`route-analysis` (behaviour insights + recommendations), `notifications` (4 types, 5 channels, push
-fan-out), `ai` (LLM + TTS + STT), `health`. All deployed as a single Lambda, scale-to-zero.
+### Physical deployment
 
----
-
-## Physical architecture (AWS)
-
-The deployed topology. Everything is serverless and scales to zero. No VPC, NAT, load balancer, or
-always-on database.
+Everything is serverless and scales to zero. No VPC, NAT, load balancer, or always-on database.
 
 ```mermaid
 flowchart TB
-    App["Expo app on device"]
-
-    App -- "HTTPS + JWT" --> APIGW["API Gateway<br/>HTTP API"]
-    APIGW --> HTTP["Lambda: HTTP<br/>NestJS · ARM64 · 512 MB · 29s"]
-
-    HTTP -- "Prisma (pooled)" --> NEON[("Neon Postgres<br/>ap-southeast-1")]
-    HTTP -- "enqueue push" --> SQS["SQS queue<br/>+ DLQ (5 retries)"]
-    HTTP -- "put/get clips" --> S3["S3 audio scratch<br/>1-day TTL"]
-    HTTP -- "TTS / STT" --> AISVC["Polly · Transcribe"]
-    HTTP -- "LLM (HTTPS)" --> CLAUDE["Anthropic Claude API"]
-    HTTP -- "open data" --> EXT["data.gov.sg · LTA DataMall"]
-
-    EB1["EventBridge<br/>daily 02:00 SGT"] -- "analyze-all" --> SQS
-    EB2["EventBridge<br/>hourly"] -- "pre-drive-sweep" --> SQS
-
-    SQS --> WORKER["Lambda: Worker<br/>ARM64 · 1024 MB · 60s · batch 10"]
-    WORKER -- "Prisma" --> NEON
-    WORKER -- "send push" --> EXPO["Expo Push service"]
+    App[Expo app on device] -->|HTTPS and JWT| APIGW[API Gateway HTTP API]
+    APIGW --> HTTP[HTTP Lambda, NestJS, ARM64 512MB]
+    HTTP -->|Prisma pooled| NEON[(Neon Postgres, Singapore)]
+    HTTP -->|enqueue push| SQS[SQS queue plus DLQ]
+    HTTP -->|store clips| S3[(S3 audio scratch, 1-day expiry)]
+    HTTP -->|TTS and STT| AISVC[Polly and Transcribe]
+    HTTP -->|LLM over HTTPS| CLAUDE[Anthropic Claude API]
+    HTTP -->|open data| EXT[data.gov.sg and LTA DataMall]
+    EB1[EventBridge daily 2am SGT] -->|analyze-all| SQS
+    EB2[EventBridge hourly] -->|pre-drive sweep| SQS
+    SQS --> WORKER[Worker Lambda, ARM64 1024MB, batch 10]
+    WORKER -->|Prisma| NEON
+    WORKER -->|send push| EXPO[Expo Push service]
     EXPO --> App
-
-    classDef compute fill:#fff7ed,stroke:#f59e0b,color:#0f172a;
-    classDef data fill:#dcfce7,stroke:#16a34a,color:#0f172a;
-    classDef edge fill:#e8f0ff,stroke:#2563eb,color:#0f172a;
-    class HTTP,WORKER compute;
-    class NEON,S3,SQS data;
-    class APIGW,EB1,EB2 edge;
-```
-
-| Resource | Configuration |
-|---|---|
-| API Gateway | HTTP API, default route to the HTTP Lambda |
-| Lambda (HTTP) | Node 20, ARM64, 512 MB, 29s timeout, `lambda.handler`, Nest app cached across warm invocations |
-| Lambda (Worker) | Node 20, ARM64, 1024 MB, 60s, `worker.handler`, SQS event source (batch 10, partial-batch failures) |
-| SQS | Standard queue, 60s visibility, DLQ after 5 receives (14-day retention) |
-| EventBridge | Daily cron 18:00 UTC (02:00 SGT) `analyze-all`; hourly `pre-drive-sweep` |
-| S3 | Audio scratch bucket, SSE, block-public, 1-day lifecycle expiry |
-| Neon | Serverless Postgres, Singapore, Prisma (pooled URL at runtime, direct URL for migrations) |
-| IAM | HTTP Lambda granted Polly + Transcribe + S3 read/write; queue send. Least-privilege deploy role via OIDC |
-
----
-
-## Key sequences
-
-### Record a drive, then cost it
-
-```mermaid
-sequenceDiagram
-    autonumber
-    participant U as Driver
-    participant App as Expo app
-    participant API as HTTP Lambda
-    participant DB as Neon Postgres
-    participant Ext as LTA / data.gov.sg
-
-    U->>App: Start drive
-    App->>API: POST /routes (start)
-    API->>DB: create DrivingRoute (active)
-    loop while driving
-        App->>App: GPS sample (fg + bg task)
-        App->>API: POST /routes/:id/points (batch)
-        API->>DB: append RoutePoint, update distance/speed
-        App->>Ext: nearby ERP / incidents
-        App-->>U: voice + banner alert
-    end
-    U->>App: End drive
-    App->>API: POST /routes/:id/complete
-    API->>Ext: ERP rate, vehicle fuel rate
-    API->>DB: write TripSummary (fuel + ERP + parking)
-    API-->>App: trip summary
-    App-->>U: map + itemised cost
-```
-
-### Ask the AI assistant (voice)
-
-```mermaid
-sequenceDiagram
-    autonumber
-    participant U as Driver
-    participant App as Expo app
-    participant API as HTTP Lambda
-    participant S3 as S3
-    participant TR as Transcribe
-    participant LLM as Claude API
-    participant PL as Polly
-
-    U->>App: Hold to talk
-    App->>API: POST /ai/voice (audio)
-    API->>S3: store clip
-    API->>TR: transcribe(clip)
-    TR-->>API: transcript
-    API->>API: build context (profile, trips, live data)
-    API->>LLM: prompt + context
-    LLM-->>API: answer
-    API->>PL: synthesize speech(answer)
-    PL-->>API: audio
-    API-->>App: transcript + answer + audio
-    App-->>U: shows reply, plays voice
 ```
 
 ---
 
-## Deployment
+## Potential Deep Dives
 
-CI/CD runs on GitHub Actions with OIDC, so no AWS keys are ever stored. The API deploys through CDK;
-the web demo ships through Expo web export to Pages; the app ships through EAS.
+### 1) How do we record a drive in the background without draining the battery or losing points?
 
-```mermaid
-flowchart LR
-    Dev["Developer"] -- "push / PR" --> GH["GitHub"]
+A drive must be captured while the phone is locked in a pocket.
 
-    subgraph CI["GitHub Actions (OIDC, no stored keys)"]
-        direction TB
-        CIW["ci: typecheck, lint, build, cdk synth"]
-        SEC["security: CodeQL, gitleaks, npm audit"]
-        DEP["deploy-api: migrate, build, cdk deploy, smoke test"]
-        WEB["deploy-web: expo export, GitHub Pages"]
-        MOB["mobile-build: EAS build / submit / OTA"]
-    end
+<details>
+<summary><strong>Bad solution: keep the app open and poll</strong></summary>
 
-    GH --> CIW
-    GH --> SEC
-    GH -- "main" --> DEP
-    GH -- "main" --> WEB
-    GH -- "release" --> MOB
+Sample GPS only while the app is in the foreground with the screen on. The moment the phone locks or the driver switches apps, recording stops and the drive is lost, and holding the screen on flattens the battery.
+</details>
 
-    DEP -- "AssumeRole (OIDC)" --> AWS["AWS: CloudFormation / Lambda / API GW / SQS / S3 / EventBridge"]
-    DEP -- "prisma migrate deploy" --> NEON[("Neon Postgres")]
-    WEB --> PAGES["GitHub Pages (web demo)"]
-    MOB --> STORES["App Store / Play / Expo Update"]
-    STORES --> Device["User device"]
+<details>
+<summary><strong>Good solution: foreground location updates</strong></summary>
 
-    classDef ci fill:#e8f0ff,stroke:#2563eb,color:#0f172a;
-    classDef tgt fill:#fff7ed,stroke:#f59e0b,color:#0f172a;
-    class CIW,SEC,DEP,WEB,MOB ci;
-    class AWS,NEON,PAGES,STORES tgt;
-```
+Use the platform location updates while the app is open. This captures a drive as long as the user never leaves the screen, which is not how anyone drives, so real trips still get cut off when the phone locks.
+</details>
 
-The CDK app provisions everything in [Physical architecture](#physical-architecture-aws) via the
-reusable `NestjsApi` construct (HTTP Lambda + Worker Lambda + SQS + DLQ + API Gateway), plus the S3
-audio bucket and the two EventBridge schedules. `deploy-api` runs migrations, deploys, then smoke-tests
-the live `/health` endpoint before finishing.
+<details>
+<summary><strong>Great solution: a background task and batched points</strong></summary>
 
----
+Run a background location task through expo-location and expo-task-manager, backed by an Android foreground service, so sampling continues with the screen off. Points are buffered on the device and posted in batches, so a screen lock or brief signal loss does not drop the drive, and batching keeps radio use and request count down. This is what DriveBuddy runs.
+</details>
 
-## Database design
+### 2) How do we run push and scheduled work reliably and cheaply?
 
-Nine Prisma models on Neon Postgres. A `User` owns vehicles, routes, trips, notifications,
-recommendations, device tokens, and one settings row. A `DrivingRoute` owns its GPS points and a single
-`TripSummary`.
+Push fan-out and the nightly analysis are slow and must not block a user request or be lost on failure.
 
-```mermaid
-erDiagram
-    User ||--o{ Vehicle : owns
-    User ||--o{ DrivingRoute : records
-    User ||--o{ TripSummary : has
-    User ||--o{ Notification : receives
-    User ||--o{ Recommendation : gets
-    User ||--o{ DeviceToken : registers
-    User ||--|| NotificationSettings : configures
-    DrivingRoute ||--o{ RoutePoint : contains
-    DrivingRoute ||--|| TripSummary : produces
+<details>
+<summary><strong>Bad solution: do it inline in the request</strong></summary>
 
-    User {
-        uuid id PK
-        string email UK
-        string passwordHash "nullable (social)"
-        string fullName
-        string provider "local|google|apple"
-    }
-    Vehicle {
-        uuid id PK
-        uuid userId FK
-        string vehicleNumber
-        enum fuelType "Petrol|Hybrid|Electric"
-        decimal fuelConsumption
-        bool isMain
-    }
-    DrivingRoute {
-        uuid id PK
-        uuid userId FK
-        bool isActive
-        float totalDistance
-        float averageSpeed
-        datetime startTime
-        datetime endTime
-    }
-    RoutePoint {
-        bigint id PK
-        uuid routeId FK
-        datetime timestamp
-        float latitude
-        float longitude
-        float speed
-    }
-    TripSummary {
-        uuid id PK
-        uuid routeId FK, UK
-        uuid userId FK
-        float distanceKm
-        int durationMin
-        decimal erpCost
-        decimal fuelCost
-        decimal parkingCost
-    }
-    Notification {
-        uuid id PK
-        uuid userId FK
-        enum type "PRE_DRIVE|REAL_TIME|POST_TRIP|SYSTEM"
-        string title
-        string body
-        bool read
-    }
-    NotificationSettings {
-        uuid userId PK, FK
-        bool preDrive
-        bool realTime
-        bool postTrip
-        bool system
-        bool channels "speed/hazard/erp/traffic/weather"
-    }
-    Recommendation {
-        uuid id PK
-        uuid userId FK
-        string category "erp|fuel|routine|safety|carpark"
-        float score
-        bool dismissed
-    }
-    DeviceToken {
-        uuid id PK
-        uuid userId FK
-        string token UK
-        string platform "ios|android"
-    }
-```
+Send pushes and run the history analysis inside the HTTP request that triggered them. The user waits on work they do not care about, a slow third party stalls the response, and any failure loses the work.
+</details>
 
-All child relations cascade on user delete. `DrivingRoute` cascades to its `RoutePoint`s and
-`TripSummary`. The Prisma schema is the single source of truth; migrations are applied with
-`prisma migrate deploy` during the deploy workflow.
+<details>
+<summary><strong>Good solution: a timer or a single cron box</strong></summary>
 
----
+Move the work to a timer in the app or one always-on cron server. The app cannot be relied on to be open, and an always-on box costs money around the clock and still has no real retry story.
+</details>
 
-## Spec-driven development
+<details>
+<summary><strong>Great solution: a queue, a worker, and schedules</strong></summary>
 
-DriveBuddy is built on a platform that treats the spec as the contract. The rule is simple: **no
-requirement ships without a test that proves it, and the build will not go green until every
-requirement is covered.**
+The HTTP Lambda enqueues jobs onto SQS, a separate worker Lambda drains them in batches with partial-batch failures, a dead-letter queue catches anything that fails five times, and EventBridge fires the daily and hourly jobs. The request path stays fast, work retries safely, and nothing runs when idle. This is what DriveBuddy runs.
+</details>
 
-```mermaid
-flowchart LR
-    Brief["Brief / feature request"] --> Spec["specs/*.yml<br/>each requirement: ID, category,<br/>severity, given / when / then"]
-    Spec --> Pair["Same turn:<br/>[ID] test + implementation"]
-    Pair --> Gate{"npm run test:spec"}
-    Gate -- "uncovered ID, red test,<br/>or empty assertion" --> Pair
-    Gate -- "100% covered, all green" --> Merge["Merge / deploy"]
+### 3) How do we keep the whole system near zero cost?
 
-    classDef ok fill:#dcfce7,stroke:#16a34a,color:#0f172a;
-    classDef work fill:#e8f0ff,stroke:#2563eb,color:#0f172a;
-    class Merge ok;
-    class Spec,Pair work;
-```
+Near-zero idle cost is a stated requirement, not an afterthought.
 
-**How it works (`@platform/spec-test`):**
+<details>
+<summary><strong>Bad solution: the always-on textbook stack</strong></summary>
 
-- **Spec first.** Every requirement gets a stable ID (`APP-DOMAIN-NNN`), a category, a severity, and a
-  given/when/then. Requirements live in YAML, not in someone's head.
-- **Test and code together.** For each requirement you write the `[ID]`-named test and the
-  implementation in the same change. The runner matches the requirement's verify level: `unit` /
-  `component` use Vitest / jest-expo (RNTL for components), `e2e` uses Maestro, `native` / `manual` are
-  proven by signed `verification/` artifacts.
-- **A gate, not a suggestion.** The coverage tracker fails the build if any requirement is uncovered or
-  its test is red. An ESLint rule fails lint on any spec test whose body has zero assertions, so a
-  test-as-checkbox cannot sneak through.
-- **Journey-level checks.** User-facing features carry at least one end-to-end flow that traverses the
-  whole path, so the suite catches the case where every unit is green but the chain is broken.
+Containers on Fargate behind a load balancer with a managed, always-on database. Correct and familiar, and it bills real money every hour even with no users.
+</details>
 
-The API spec gate runs on Vitest (`test/setup.ts` wires `setupSpecCoverage`); the app uses jest-expo
-and Maestro. See `docs/TESTING.md` and the root `CLAUDE.md` for the full protocol.
+<details>
+<summary><strong>Good solution: autoscaling containers</strong></summary>
+
+Containers that scale in when idle. Cheaper, but the load balancer and the database still bill around the clock, and scaling up from low is slow.
+</details>
+
+<details>
+<summary><strong>Great solution: scale-to-zero everywhere</strong></summary>
+
+Lambda behind an HTTP API gateway, a serverless Postgres on a free tier, a tiny S3 bucket with a one-day expiry, and no VPC, NAT, or load balancer. With light use the bill is roughly zero to two dollars a month, and there is nothing to pay for when no one is driving. This is what DriveBuddy runs.
+</details>
+
+### 4) How does the AI assistant stay grounded and answer by voice?
+
+The assistant must lean on the driver's own data, not just general knowledge, and work hands-free.
+
+<details>
+<summary><strong>Bad solution: send only the question</strong></summary>
+
+Pass the raw question to the model. Answers are generic and ignore the driver's vehicles, trips, and the current conditions, which is exactly the value the app is supposed to add.
+</details>
+
+<details>
+<summary><strong>Good solution: prepend recent data as a blob</strong></summary>
+
+Glue some recent trips and profile fields onto the prompt as text. Better, but unstructured, easy to overflow the context, and it gives the model no clean way to tell what is current.
+</details>
+
+<details>
+<summary><strong>Great solution: a structured context and a voice pipeline</strong></summary>
+
+Assemble a structured context from the profile, vehicles, recent trips, and the live data, and send it with the question. For voice, store the clip in S3, Transcribe it to text, answer with Claude against that context, then synthesize the reply with Polly, so the driver can talk and listen hands-free. The audio scratch bucket expires clips after a day.
+</details>
+
+### 5) How do we test native behaviour that JavaScript cannot reach?
+
+Background GPS and push run at the OS level, so JS tests cannot exercise them, yet a 100 percent gate would claim they are covered.
+
+<details>
+<summary><strong>Bad solution: mark them covered and hope</strong></summary>
+
+Tag the native requirements as covered with no real check. The gate now lies, and a regression in call blocking or background capture ships unnoticed.
+</details>
+
+<details>
+<summary><strong>Good solution: manual QA each release</strong></summary>
+
+A person tests on a real device before each release and notes it in a doc. Real evidence, but unenforced and easy to skip under time pressure, and nothing ties it to the build.
+</details>
+
+<details>
+<summary><strong>Great solution: signed verification artifacts</strong></summary>
+
+Prove those requirements with committed real-device evidence that is checksum-stamped and sits on a commit signed by an allowed signer, and that goes stale on an app-version change, an OS-baseline bump, or a 90-day expiry. The gate enforces it, so native behaviour cannot ship on missing, tampered, unsigned, or expired evidence.
+</details>
 
 ---
 
 ## Tech stack
 
-| Layer | Choice |
+| Layer | Tech |
 |---|---|
-| Mobile | Expo / React Native, Expo Router, `expo-location` / `-task-manager` / `-notifications` / `-av` / `-speech` / `-secure-store`, `expo-linear-gradient`, Ionicons |
-| Web demo | Expo web export (react-native-web) on GitHub Pages |
-| API | NestJS 10, class-validator, `@nestjs/jwt` + passport-jwt, bcryptjs |
+| Mobile | Expo and React Native, Expo Router, expo-location, expo-task-manager, expo-notifications, expo-speech, expo-secure-store |
+| Web demo | Expo web export with react-native-web on GitHub Pages |
+| API | NestJS 10, class-validator, JWT with passport, bcrypt |
 | Data | Neon serverless Postgres (Singapore) via Prisma 6 |
-| Compute | AWS Lambda (ARM64, Node 20) behind API Gateway HTTP API |
-| Async | SQS (+ DLQ) worker, EventBridge schedules (daily + hourly) |
-| AI | Anthropic Claude API (LLM), Polly (TTS), Transcribe (STT), S3 scratch |
-| IaC | AWS CDK (TypeScript), the reusable `NestjsApi` construct |
-| CI/CD | GitHub Actions (OIDC, no stored keys): CI, Deploy API (CDK + smoke test), Deploy Web, Security, Mobile build (EAS) |
-| Quality | Spec-driven gate (`@platform/spec-test`), CodeQL, gitleaks, Dependabot |
+| Compute | AWS Lambda (ARM64, Node 20) behind an API Gateway HTTP API |
+| Async | SQS with a dead-letter queue, EventBridge daily and hourly schedules |
+| AI | Anthropic Claude API for answers, Polly for speech, Transcribe for voice input, S3 scratch |
+| IaC | AWS CDK (TypeScript), the reusable NestjsApi construct |
+| CI/CD | GitHub Actions with OIDC, no stored keys, plus EAS for app builds |
+| Quality | Spec-driven coverage gate, Vitest, jest-expo, Maestro, CodeQL, gitleaks |
 
----
+## License
 
-## Monorepo layout
-
-```
-drivebuddy/
-  apps/drivebuddy/        Expo app
-    app/                  screens (Expo Router): (tabs), login, trip, vehicles, ...
-    components/           ui.tsx (design system), skeleton.tsx
-    lib/                  api.ts, auth-context, theme.ts, location-task
-  services/api/           ONE NestJS API
-    src/<module>/         auth, users, vehicles, external, drive-monitor,
-                          trips, notifications, ai, route-analysis, health
-    src/lambda.ts         HTTP Lambda handler
-    src/worker.ts         SQS worker: push fan-out + analyze-all + pre-drive-sweep
-    prisma/schema.prisma
-  infra/cdk/drivebuddy/   CDK app: NestjsApi construct, S3, IAM, EventBridge
-  infra/cdk/_setup/       GitHub OIDC deploy role
-  packages/spec-test/     spec-coverage gate + runners (vitest/jest/maestro/playwright)
-  docs/                   SETUP, DEPLOY, MOBILE, TESTING, screenshots, mockups
-```
-
----
-
-## Getting started
-
-**Prerequisites:** Node 20+, an [Expo](https://expo.dev) account (for device runs), and a
-[Neon](https://neon.tech) Postgres connection string.
-
-```bash
-# 1. install
-npm ci
-
-# 2. backend (local)
-cd services/api
-cp .env.example .env            # set DATABASE_URL (Neon) and JWT_SECRET
-npx prisma migrate deploy       # apply migrations
-npm run start:dev               # NestJS on http://localhost:3000
-
-# 3. app
-cd ../../apps/drivebuddy
-npx expo start                  # press 'i' or 'a', or scan with Expo Go
-npx expo start --web            # or run the web build locally
-```
-
-The app reads its API base URL from `EXPO_PUBLIC_API_URL` (falling back to `app.json`, key
-`extra.apiUrl`).
-
-### Deploy the API
-
-Push to `main` and the **Deploy API** workflow runs migrations, builds, runs `cdk deploy`, and
-smoke-tests the live URL. Or run it locally:
-
-```bash
-cd infra/cdk/drivebuddy
-DATABASE_URL=... JWT_SECRET=... npx cdk deploy
-```
-
----
-
-## Cost
-
-Scale-to-zero everywhere: AWS Lambda + API Gateway + a tiny S3 bucket + a free Neon tier, roughly
-**$0 to $2 per month** with light use. No Fargate, no NAT gateway, no load balancer, no idle database.
-
----
-
-## Status and roadmap
-
-All planned phases (A to H) are built and verified live. A few items depend on external accounts or keys:
-
-- [ ] **LTA DataMall key:** set the `LTA_ACCOUNT_KEY` secret to enable live traffic, ERP and carpark (env already wired).
-- [ ] **EAS / store builds:** run `eas init` and set the `EXPO_TOKEN` secret to produce installable builds and enable on-device push.
-- [ ] **Native enhancements:** an interactive pan/zoom map (the trip map currently renders OpenStreetMap raster tiles with the route overlaid), an on-device wake-word, and a floating overlay over other nav apps. Background GPS, in-drive voice alerts, and hands-free continuous voice are implemented.
-
----
-
-<div align="center"><sub>Drive smart. Drive safe.</sub></div>
+MIT.
