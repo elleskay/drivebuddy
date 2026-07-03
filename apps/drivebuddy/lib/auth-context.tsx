@@ -20,7 +20,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // On launch, treat a stored token as signed-in (refresh kicks in lazily on 401).
   useEffect(() => {
-    (async () => {
+    void (async () => {
       const token = await getAccessToken();
       if (token) {
         try {

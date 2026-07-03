@@ -1,19 +1,29 @@
-# infra/cdk/_template
+# infra/cdk/drivebuddy
 
-CDK package for the NestJS API. Copy to `infra/cdk/<your-app>/` and rename the
-stack id in `bin/app.ts`.
+CDK package for the DriveBuddy API. `bin/app.ts` defines one stack,
+`DriveBuddyApi` (the CloudFormation stack name).
 
-## What it deploys (`NestjsApi` construct)
+## What it deploys
+
+Via the `NestjsApi` construct (`lib/constructs/NestjsApi.ts`):
 
 - HTTP Lambda (`src/lambda.ts`, serverless-express) behind an API Gateway HTTP API
-- SQS report-intake queue plus a dead-letter queue
-- Worker Lambda (`src/reports/reports.consumer.ts`) consuming the queue with
-  partial-batch responses
-- Optional OpenSearch domain for clustering similar reports (`enableOpenSearch`)
+- SQS job queue (push fan-out + scheduled jobs) plus a dead-letter queue
+  (maxReceive 5)
+- Worker Lambda (`src/worker.ts`) consuming the queue with partial-batch
+  responses
 
-`REPORTS_QUEUE_URL` and `OPENSEARCH_ENDPOINT` are injected into the Lambdas by the
-construct. Pass the rest (DATABASE_URL, JWT_SECRET, classifier keys) via the
-`environment` prop. Env vars are baked at synth time.
+Plus, in `lib/api-stack.ts`:
+
+- S3 audio scratch bucket (1-day expiry) for the voice assistant, with
+  Polly/Transcribe IAM grants on the HTTP Lambda
+- EventBridge schedules: daily `analyze-all` (02:00 SGT) and hourly
+  `pre-drive-sweep`, both delivered through the SQS queue
+
+`PUSH_QUEUE_URL` and `AUDIO_BUCKET` are injected into the Lambdas by the stack.
+Pass the rest (`DATABASE_URL`, `JWT_SECRET`, `LTA_ACCOUNT_KEY`,
+`ANTHROPIC_API_KEY`, `ANTHROPIC_MODEL`, `DD_SERVICE`) via the shell/CI env.
+Env vars are baked at synth time.
 
 ## Commands
 
@@ -31,6 +41,7 @@ shell that runs deploy. CI does this via OIDC; see `docs/DEPLOY.md`.
 
 - Nest app cached across warm invocations (in the service's `lambda.ts`).
 - SQS worker is idempotent and uses `reportBatchItemFailures`.
-- The AWS SDK is marked external in bundling (the Lambda runtime provides it).
-- Use `logicalIdOverrides` for in-place upgrades when adopting the construct on a
-  stack that previously created these resources at the root.
+- The AWS SDK is provided by the Lambda runtime; the bundle ships tsc output
+  plus production node_modules (esbuild bundling breaks Nest DI metadata).
+- The queue construct ids keep their original template names so CloudFormation
+  logical IDs stay stable; use `logicalIdOverrides` for other in-place upgrades.

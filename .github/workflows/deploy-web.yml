@@ -1,11 +1,16 @@
-name: deploy-web
+name: Deploy Web
 
 # Builds the Expo app for web (react-native-web) pointed at the live API and
 # publishes it to GitHub Pages. This is the clickable demo: a browser URL that
 # runs the real DriveBuddy UI against the deployed AWS API. Native-only features
 # (background GPS, push, audio capture) degrade gracefully on web.
+#
+# Deploys after CI passes on main (workflow_run), or on manual dispatch, so a
+# broken export never replaces a working demo.
 on:
-  push:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
     branches: [main]
   workflow_dispatch:
 
@@ -18,14 +23,21 @@ concurrency:
   group: pages
   cancel-in-progress: true
 
+env:
+  NODE_VERSION: "22"
+
 jobs:
   build:
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v6
         with:
-          node-version: 20
+          # For workflow_run events, publish exactly the commit CI validated.
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+      - uses: actions/setup-node@v6
+        with:
+          node-version: ${{ env.NODE_VERSION }}
           cache: npm
       - run: npm ci
       - name: Export web build

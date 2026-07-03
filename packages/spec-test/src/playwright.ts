@@ -14,13 +14,15 @@ const SPEC_ID_RE = /^\[([A-Z][A-Z0-9]*(?:-[A-Z][A-Z0-9]*)+-\d{3,})\]/;
  */
 export const test = base.extend<{ specCoverage: void }>({
   specCoverage: [
+    // Playwright's fixture API requires the destructuring pattern even when
+    // the fixture uses no other fixtures.
+    // eslint-disable-next-line no-empty-pattern
     async ({}, use, testInfo) => {
       await use();
       const m = SPEC_ID_RE.exec(testInfo.title);
       if (!m) return;
       const id = m[1] as string;
-      const status: "passed" | "failed" =
-        testInfo.status === "passed" ? "passed" : "failed";
+      const status: "passed" | "failed" = testInfo.status === "passed" ? "passed" : "failed";
       recordCoverage({
         id,
         status,

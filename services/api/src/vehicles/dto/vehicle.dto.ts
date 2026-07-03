@@ -1,4 +1,13 @@
-import { IsBoolean, IsEnum, IsNumber, IsOptional, IsString, Max, Min, MaxLength } from "class-validator";
+import {
+  IsBoolean,
+  IsEnum,
+  IsNumber,
+  IsOptional,
+  IsString,
+  Max,
+  Min,
+  MaxLength,
+} from "class-validator";
 
 export enum FuelType {
   Petrol = "Petrol",

@@ -16,7 +16,7 @@ export default function ProfileScreen() {
   const [msg, setMsg] = useState<string | null>(null);
 
   useEffect(() => {
-    (async () => {
+    void (async () => {
       try {
         const p: Profile = await api.getProfile();
         setEmail(p.email);
@@ -63,7 +63,12 @@ export default function ProfileScreen() {
           <Text style={styles.readonly}>{email}</Text>
         </Field>
         <Field label="Full name">
-          <TextInput style={styles.input} value={fullName} onChangeText={setFullName} placeholderTextColor="#94a3b8" />
+          <TextInput
+            style={styles.input}
+            value={fullName}
+            onChangeText={setFullName}
+            placeholderTextColor="#94a3b8"
+          />
         </Field>
         <Field label="Gender">
           <TextInput
@@ -96,7 +101,12 @@ export default function ProfileScreen() {
 
         {msg ? <Text style={styles.msg}>{msg}</Text> : null}
 
-        <Button label="Save changes" onPress={onSave} loading={saving} style={{ marginTop: 8 }} />
+        <Button
+          label="Save changes"
+          onPress={() => void onSave()}
+          loading={saving}
+          style={{ marginTop: 8 }}
+        />
       </ScrollView>
     </SafeAreaView>
   );
@@ -113,7 +123,6 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#f5f7fb" },
-  center: { flex: 1, backgroundColor: "#f5f7fb", justifyContent: "center", alignItems: "center" },
   inner: { padding: 20, gap: 14 },
   field: { gap: 6 },
   label: { color: "#5b6b86", fontSize: 13, fontWeight: "600" },

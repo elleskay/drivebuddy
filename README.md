@@ -131,7 +131,7 @@ GET/POST/PATCH/DELETE /vehicles, /notifications
 The one shape worth showing is the costed trip, returned on complete:
 
 ```json
-{ "distanceKm": 12.4, "durationMin": 26, "fuelCost": 3.10, "erpCost": 2.00, "parkingCost": 0.00 }
+{ "distanceKm": 12.4, "durationMin": 26, "fuelCost": 3.1, "erpCost": 2.0, "parkingCost": 0.0 }
 ```
 
 ---
@@ -148,12 +148,9 @@ We start with the recording path: the app and the API over a JWT, points appende
 
 ```mermaid
 flowchart LR
-  App["Expo app<br/>- samples GPS fg and bg<br/>- batches points on device"]
-  API["HTTP Lambda (NestJS)<br/>- appends points<br/>- running distance and speed"]
-  Neon[("Neon Postgres")]
-  App -->|JWT| API
-  App -->|"start, batched points, complete"| API
-  API --> Neon
+  App["Expo app<br/>- GPS fg and bg<br/>- batches points on device"] -->|"POST /drive-monitor/routes/(id)/points (JWT)"| APIGW["API Gateway<br/>- HTTP API"]
+  APIGW -->|"RoutesController.addPoints()"| Routes["RoutesService<br/>- start()<br/>- addPoints()<br/>- complete()"]
+  Routes -->|"prisma.routePoint.createMany()"| Neon[("Neon Postgres")]
 ```
 
 ### 2) The app gives in-drive alerts
@@ -164,14 +161,10 @@ We add the live-data feeds and the in-drive alerts they raise.
 
 ```mermaid
 flowchart LR
-  App["Expo app<br/>- samples GPS fg and bg<br/>- voice alerts and banners<br/>- ERP, traffic, weather, fuel"]
-  API["HTTP Lambda (NestJS)<br/>- appends points<br/>- running distance and speed<br/>- caches live data"]
-  Neon[("Neon Postgres")]
-  LTA{"data.gov.sg / LTA DataMall"}
-  App -->|JWT| API
-  API --> Neon
-  API -->|"live data, cached"| LTA
-  LTA -->|"in-drive alerts"| App
+  App["Expo app<br/>- GPS fg and bg"] -->|"GET /external/dashboard/(feed)"| APIGW["API Gateway<br/>- HTTP API"]
+  APIGW -->|"ExternalController.weather()/traffic()/erp()..."| Ext["ExternalService<br/>- weather()<br/>- traffic()<br/>- erp(), carpark(), petrol()<br/>- in-memory TTL cache"]
+  Ext -->|"fetch() live feed"| Src{"data.gov.sg / LTA DataMall"}
+  Ext -->|"served snapshot raises"| Alerts(["voice alerts and banners<br/>- ERP, traffic, weather, fuel"])
 ```
 
 ### 3) The drive is costed into a trip summary on stop
@@ -182,17 +175,11 @@ We add the cost step on stop and the map the trip renders on.
 
 ```mermaid
 flowchart LR
-  App["Expo app<br/>- voice alerts and banners<br/>- renders route on OSM tiles<br/>- itemised cost"]
-  API["HTTP Lambda (NestJS)<br/>- appends points<br/>- running distance and speed<br/>- Compute fuel and ERP<br/>- writes one TripSummary per route"]
-  Neon[("Neon Postgres")]
-  Summary[("TripSummary per route")]
-  LTA{"data.gov.sg / LTA DataMall"}
-  App -->|JWT| API
-  API --> Neon
-  API -->|"live data, cached"| LTA
-  LTA -->|"in-drive alerts"| App
-  API -->|"on complete"| Summary
-  Summary -->|"route and itemised cost"| App
+  App["Expo app<br/>- renders route on OSM tiles"] -->|"POST /drive-monitor/routes/(id)/complete (JWT)"| APIGW["API Gateway<br/>- HTTP API"]
+  APIGW -->|"RoutesController.complete()"| Routes["RoutesService<br/>- complete()"]
+  Routes -->|"tripsService.createForRoute()"| Trips["TripsService<br/>- fuel plus ERP<br/>- parking reserved, zero"]
+  Trips -->|"prisma.tripSummary.upsert()"| Summary[("TripSummary per route<br/>- distance, duration, costs")]
+  Summary -->|"render"| Map(["route and itemised cost<br/>- drawn for the driver"])
 ```
 
 ### 4) A user can ask an AI assistant by voice or text
@@ -203,26 +190,12 @@ We add the assistant. The voice path stores a clip, transcribes it, answers agai
 
 ```mermaid
 flowchart LR
-  App["Expo app<br/>- voice alerts and banners<br/>- hold to talk<br/>- plays back spoken reply"]
-  API["HTTP Lambda (NestJS)<br/>- Compute fuel and ERP<br/>- builds context from profile, trips, live data<br/>- orchestrates voice pipeline"]
-  Neon[("Neon Postgres")]
-  Summary[("TripSummary per route")]
-  Clip[("S3 audio scratch, 1-day expiry")]
-  LTA{"data.gov.sg / LTA DataMall"}
-  STT{"Transcribe"}
-  Claude{"Anthropic Claude"}
-  TTS{"Polly"}
-  App -->|JWT| API
-  API --> Neon
-  API -->|"live data, cached"| LTA
-  LTA -->|"in-drive alerts"| App
-  API -->|"on complete"| Summary
-  App -->|"hold to talk, POST /ai/voice"| API
-  API -->|"store clip"| Clip
-  Clip -->|"audio"| STT
-  STT -->|"text plus context"| Claude
-  Claude -->|"answer"| TTS
-  TTS -->|"speech"| App
+  App["Expo app<br/>- hold to talk"] -->|"POST /ai/voice (JWT)"| AiSvc["AiService<br/>- voice()<br/>- buildContext()"]
+  AiSvc -->|"transcribeAudio() puts clip"| S3[("S3 audio scratch<br/>- 1-day expiry")]
+  S3 -->|"StartTranscriptionJob"| STT{"Transcribe"}
+  STT -->|"invokeLlm() with context"| Claude{"Anthropic Claude<br/>- grounded context"}
+  Claude -->|"synthesize() via Polly"| TTS{"Polly"}
+  TTS -->|"play"| Play(["spoken reply<br/>- played back"])
 ```
 
 ### 5) Notifications and scheduled intelligence run asynchronously
@@ -233,30 +206,12 @@ We add the async tier off the request path. That completes the logical design (t
 
 ```mermaid
 flowchart LR
-  App["Expo app<br/>- voice alerts and banners<br/>- hold to talk<br/>- receives push"]
-  API["HTTP Lambda (NestJS)<br/>- Compute fuel and ERP<br/>- enqueues async jobs"]
-  Worker["Worker Lambda<br/>- batch of 10<br/>- partial-batch failures<br/>- runs push and scheduled work"]
-  Neon[("Neon Postgres")]
-  Summary[("TripSummary per route")]
-  DLQ[("Dead-letter queue")]
-  SQS(["SQS queue"])
-  EB["EventBridge<br/>- daily history analysis<br/>- hourly pre-drive sweep"]
-  LTA{"data.gov.sg / LTA DataMall"}
-  AI{"S3 clip, Transcribe, Claude, Polly"}
-  Push{"Expo Push"}
-  App -->|JWT| API
-  API --> Neon
-  API --> LTA
-  API -->|"on complete"| Summary
-  API -->|"voice or text"| AI
-  AI --> App
-  API -->|enqueue| SQS
-  EB --> SQS
-  SQS -->|"batch of 10"| Worker
-  Worker -->|"fails 5 receives"| DLQ
-  Worker --> Neon
-  Worker --> Push
-  Push --> App
+  Notif["NotificationsService<br/>- create()<br/>- enqueuePush()"] -->|"sqs.send() SendMessageCommand"| SQS(["SQS queue"])
+  EB["EventBridge<br/>- daily analyze-all<br/>- hourly pre-drive-sweep"] -->|"scheduled job"| SQS
+  SQS -->|"batch of 10"| Worker["Worker Lambda (handler)<br/>- handlePush()<br/>- handleAnalyzeAll()<br/>- handlePreDriveSweep()"]
+  Worker -->|"prisma.deviceToken.findMany()"| Neon[("Neon Postgres")]
+  Worker -->|"fetch() Expo push send"| Push{"Expo Push"}
+  Worker -->|"after 5 receives"| DLQ[("Dead-letter queue<br/>- maxReceive 5")]
 ```
 
 ---
@@ -271,18 +226,21 @@ A drive must be captured while the phone is locked in a pocket.
 <summary><strong>Bad solution: keep the app open and poll</strong></summary>
 
 Sample GPS only while the app is in the foreground with the screen on. The moment the phone locks or the driver switches apps, recording stops and the drive is lost, and holding the screen on flattens the battery.
+
 </details>
 
 <details>
 <summary><strong>Good solution: foreground location updates</strong></summary>
 
 Use the platform location updates while the app is open. This captures a drive as long as the user never leaves the screen, which is not how anyone drives, so real trips still get cut off when the phone locks.
+
 </details>
 
 <details>
 <summary><strong>Great solution: a background task and batched points</strong></summary>
 
 Run a background location task through expo-location and expo-task-manager, backed by an Android foreground service, so sampling continues with the screen off. Points are buffered on the device and posted in batches, so a screen lock or brief signal loss does not drop the drive, and batching keeps radio use and request count down. This is what DriveBuddy runs.
+
 </details>
 
 ### 2) How do we run push and scheduled work reliably and cheaply?
@@ -293,18 +251,21 @@ Push fan-out and the nightly analysis are slow and must not block a user request
 <summary><strong>Bad solution: do it inline in the request</strong></summary>
 
 Send pushes and run the history analysis inside the HTTP request that triggered them. The user waits on work they do not care about, a slow third party stalls the response, and any failure loses the work.
+
 </details>
 
 <details>
 <summary><strong>Good solution: a timer or a single cron box</strong></summary>
 
 Move the work to a timer in the app or one always-on cron server. The app cannot be relied on to be open, and an always-on box costs money around the clock and still has no real retry story.
+
 </details>
 
 <details>
 <summary><strong>Great solution: a queue, a worker, and schedules</strong></summary>
 
 The HTTP Lambda enqueues jobs onto SQS, a separate worker Lambda drains them in batches with partial-batch failures, a dead-letter queue catches anything that fails five times, and EventBridge fires the daily and hourly jobs. The request path stays fast, work retries safely, and nothing runs when idle. This is what DriveBuddy runs.
+
 </details>
 
 ### 3) How do we keep the whole system near zero cost?
@@ -315,18 +276,21 @@ Near-zero idle cost is a stated requirement, not an afterthought.
 <summary><strong>Bad solution: the always-on textbook stack</strong></summary>
 
 Containers on Fargate behind a load balancer with a managed, always-on database. Correct and familiar, and it bills real money every hour even with no users.
+
 </details>
 
 <details>
 <summary><strong>Good solution: autoscaling containers</strong></summary>
 
 Containers that scale in when idle. Cheaper, but the load balancer and the database still bill around the clock, and scaling up from low is slow.
+
 </details>
 
 <details>
 <summary><strong>Great solution: scale-to-zero everywhere</strong></summary>
 
 Lambda behind an HTTP API gateway, a serverless Postgres on a free tier, a tiny S3 bucket with a one-day expiry, and no VPC, NAT, or load balancer. With light use the bill is roughly zero to two dollars a month, and there is nothing to pay for when no one is driving. This is what DriveBuddy runs.
+
 </details>
 
 ### 4) How does the AI assistant stay grounded and answer by voice?
@@ -337,18 +301,21 @@ The assistant must lean on the driver's own data, not just general knowledge, an
 <summary><strong>Bad solution: send only the question</strong></summary>
 
 Pass the raw question to the model. Answers are generic and ignore the driver's vehicles, trips, and the current conditions, which is exactly the value the app is supposed to add.
+
 </details>
 
 <details>
 <summary><strong>Good solution: prepend recent data as a blob</strong></summary>
 
 Glue some recent trips and profile fields onto the prompt as text. Better, but unstructured, easy to overflow the context, and it gives the model no clean way to tell what is current.
+
 </details>
 
 <details>
 <summary><strong>Great solution: a structured context and a voice pipeline</strong></summary>
 
 Assemble a structured context from the profile, vehicles, recent trips, and the live data, and send it with the question. For voice, store the clip in S3, Transcribe it to text, answer with Claude against that context, then synthesize the reply with Polly, so the driver can talk and listen hands-free. The audio scratch bucket expires clips after a day.
+
 </details>
 
 ### 5) How do we test native behaviour that JavaScript cannot reach?
@@ -359,18 +326,21 @@ Background GPS and push run at the OS level, so JS tests cannot exercise them, y
 <summary><strong>Bad solution: mark them covered and hope</strong></summary>
 
 Tag the native requirements as covered with no real check. The gate now lies, and a regression in call blocking or background capture ships unnoticed.
+
 </details>
 
 <details>
 <summary><strong>Good solution: manual QA each release</strong></summary>
 
 A person tests on a real device before each release and notes it in a doc. Real evidence, but unenforced and easy to skip under time pressure, and nothing ties it to the build.
+
 </details>
 
 <details>
 <summary><strong>Great solution: signed verification artifacts</strong></summary>
 
 Prove those requirements with committed real-device evidence that is checksum-stamped and sits on a commit signed by an allowed signer, and that goes stale on an app-version change, an OS-baseline bump, or a 90-day expiry. The gate enforces it, so native behaviour cannot ship on missing, tampered, unsigned, or expired evidence.
+
 </details>
 
 ---
@@ -381,45 +351,57 @@ Pulling the high-level design and the deep dives together, here is the whole sys
 
 ```mermaid
 flowchart LR
-  App["Expo app<br/>- GPS fg and bg<br/>- voice and push"]
-  API["HTTP Lambda (NestJS)<br/>- ARM64 512MB<br/>- routes, points, complete<br/>- enqueues async jobs"]
-  Worker["Worker Lambda<br/>- ARM64 1024MB<br/>- batch of 10<br/>- push and scheduled work"]
-  Neon[("Neon Postgres, Singapore")]
-  S3[("S3 audio scratch, 1-day expiry")]
-  DLQ[("Dead-letter queue")]
-  SQS(["SQS queue"])
-  EB["EventBridge<br/>- daily history analysis<br/>- hourly pre-drive sweep"]
-  LTA{"data.gov.sg / LTA"}
-  AI{"Transcribe, Claude, Polly"}
-  Push{"Expo Push"}
-  App -->|JWT| API
-  API --> Neon
-  API --> LTA
-  API --> S3
-  API --> AI
-  API -->|enqueue| SQS
-  EB --> SQS
-  SQS -->|"batch of 10"| Worker
-  Worker -->|"fails 5 receives"| DLQ
-  Worker --> Neon
-  Worker --> Push
-  Push --> App
+  App["Expo app<br/>- GPS fg and bg<br/>- voice and push"] -->|"REST (JWT)"| APIGW["API Gateway<br/>- HTTP API"]
+  APIGW -->|"RoutesService / TripsService / AiService"| HTTP["HTTP Lambda (NestJS)<br/>- ARM64 512MB<br/>- routesService.complete()<br/>- aiService.ask()"]
+  HTTP -->|"prisma queries"| Neon[("Neon Postgres<br/>- Singapore")]
+  HTTP -->|"externalService.weather() fetch()"| Ext{"data.gov.sg / LTA"}
+  HTTP -->|"notificationsService.enqueuePush()"| SQS(["SQS queue"])
+  SQS -->|"batch of 10"| Worker["Worker Lambda (handler)<br/>- ARM64 1024MB<br/>- handlePush()<br/>- handleAnalyzeAll()"]
+  Worker -->|"fetch() Expo push send"| Push{"Expo Push"}
+  Worker -->|"after 5 receives"| DLQ[("Dead-letter queue<br/>- maxReceive 5")]
 ```
 
 ## Tech stack
 
-| Layer | Tech |
-|---|---|
-| Mobile | Expo and React Native, Expo Router, expo-location, expo-task-manager, expo-notifications, expo-speech, expo-secure-store |
-| Web demo | Expo web export with react-native-web on GitHub Pages |
-| API | NestJS 10, class-validator, JWT with passport, bcryptjs |
-| Data | Neon serverless Postgres (Singapore) via Prisma 6 |
-| Compute | AWS Lambda (ARM64, Node 20) behind an API Gateway HTTP API |
-| Async | SQS with a dead-letter queue, EventBridge daily and hourly schedules |
-| AI | Anthropic Claude API for answers, Polly for speech, Transcribe for voice input, S3 scratch |
-| IaC | AWS CDK (TypeScript), the reusable NestjsApi construct |
-| CI/CD | GitHub Actions with OIDC, no stored keys, plus EAS for app builds |
-| Quality | Spec-driven coverage gate, Vitest, jest-expo, Maestro, CodeQL, gitleaks |
+| Layer    | Tech                                                                                                                     |
+| -------- | ------------------------------------------------------------------------------------------------------------------------ |
+| Mobile   | Expo and React Native, Expo Router, expo-location, expo-task-manager, expo-notifications, expo-speech, expo-secure-store |
+| Web demo | Expo web export with react-native-web on GitHub Pages                                                                    |
+| API      | NestJS 10, class-validator, JWT with passport, bcryptjs                                                                  |
+| Data     | Neon serverless Postgres (Singapore) via Prisma 6                                                                        |
+| Compute  | AWS Lambda (ARM64, Node 20) behind an API Gateway HTTP API                                                               |
+| Async    | SQS with a dead-letter queue, EventBridge daily and hourly schedules                                                     |
+| AI       | Anthropic Claude API for answers, Polly for speech, Transcribe for voice input, S3 scratch                               |
+| IaC      | AWS CDK (TypeScript), the reusable NestjsApi construct                                                                   |
+| CI/CD    | GitHub Actions with OIDC (no stored keys); deploys run only after CI passes; EAS for app builds                          |
+| Quality  | Vitest unit tests (API), spec-coverage gate tooling, CodeQL, gitleaks, actionlint, commitlint, Prettier                  |
+
+## Repository layout
+
+```
+apps/drivebuddy/        # Expo app (Expo Router)
+services/api/           # NestJS API (HTTP Lambda + SQS worker entries)
+packages/spec-test/     # Spec-coverage gate tooling
+infra/cdk/drivebuddy/   # CDK stack: API, queue, worker, audio bucket, schedules
+infra/cdk/_setup/       # One-time GitHub OIDC deploy role
+docs/                   # Setup, deploy, mobile, testing, SSDLC runbooks
+```
+
+## Run it locally
+
+```bash
+git clone https://github.com/elleskay/drivebuddy && cd drivebuddy
+npm install
+
+# API on :3000 (put a Postgres URL in services/api/.env.local; Neon free tier works)
+cd services/api && npm run start:dev
+
+# App (new terminal; press w for the browser, or scan the QR in Expo Go)
+cd apps/drivebuddy && npm run start
+```
+
+`npm run typecheck`, `npm run lint`, and `npm test` run across every workspace
+from the root. Cloud setup and deploys: `docs/SETUP.md` and `docs/DEPLOY.md`.
 
 ## License
 

@@ -6,7 +6,9 @@ import { colors } from "@/lib/theme";
 type IoniconName = React.ComponentProps<typeof Ionicons>["name"];
 const icon =
   (name: IoniconName) =>
-  ({ color, size }: { color: string; size: number }) => <Ionicons name={name} color={color} size={size} />;
+  ({ color, size }: { color: string; size: number }) => (
+    <Ionicons name={name} color={color} size={size} />
+  );
 
 export default function TabsLayout() {
   const router = useRouter();
@@ -29,7 +31,9 @@ export default function TabsLayout() {
           tabBarIcon: icon("home-outline"),
           headerRight: () => (
             <Pressable onPress={() => router.push("/settings")} hitSlop={10}>
-              <Text style={{ color: colors.primary, fontSize: 14, fontWeight: "600", marginRight: 14 }}>
+              <Text
+                style={{ color: colors.primary, fontSize: 14, fontWeight: "600", marginRight: 14 }}
+              >
                 Settings
               </Text>
             </Pressable>
@@ -39,13 +43,20 @@ export default function TabsLayout() {
       <Tabs.Screen name="journey" options={{ title: "Drive", tabBarIcon: icon("car-outline") }} />
       <Tabs.Screen
         name="dashboard"
-        options={{ title: "Live Info", tabBarLabel: "Live", tabBarIcon: icon("speedometer-outline") }}
+        options={{
+          title: "Live Info",
+          tabBarLabel: "Live",
+          tabBarIcon: icon("speedometer-outline"),
+        }}
       />
       <Tabs.Screen
         name="assistant"
         options={{ title: "Assistant", tabBarIcon: icon("chatbubble-ellipses-outline") }}
       />
-      <Tabs.Screen name="history" options={{ title: "History", tabBarIcon: icon("time-outline") }} />
+      <Tabs.Screen
+        name="history"
+        options={{ title: "History", tabBarIcon: icon("time-outline") }}
+      />
     </Tabs>
   );
 }

@@ -1,6 +1,7 @@
 import { Controller, Get, Query } from "@nestjs/common";
 import { ExternalService } from "./external.service";
 import { ERP_GANTRIES } from "./erp-gantries";
+import { RouteQueryDto } from "./dto";
 
 /**
  * Public Singapore live-data feeds for the dashboard. No auth - these are public
@@ -44,12 +45,7 @@ export class ExternalController {
 
   /** Driving route + alternative between two points (keyless OSRM). */
   @Get("route")
-  route(
-    @Query("fromLat") fromLat: string,
-    @Query("fromLng") fromLng: string,
-    @Query("toLat") toLat: string,
-    @Query("toLng") toLng: string,
-  ) {
-    return this.external.route(Number(fromLat), Number(fromLng), Number(toLat), Number(toLng));
+  route(@Query() query: RouteQueryDto) {
+    return this.external.route(query.fromLat, query.fromLng, query.toLat, query.toLng);
   }
 }

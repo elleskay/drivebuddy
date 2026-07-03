@@ -30,7 +30,11 @@ export function Card({
   variant?: "default" | "primary";
   style?: ViewStyle;
 }) {
-  return <View style={[styles.card, variant === "primary" && styles.cardPrimary, style]}>{children}</View>;
+  return (
+    <View style={[styles.card, variant === "primary" && styles.cardPrimary, style]}>
+      {children}
+    </View>
+  );
 }
 
 /** Gradient hero banner (greeting / section headline). */
@@ -47,7 +51,7 @@ export function Hero({
 }) {
   return (
     <LinearGradient
-      colors={gradients.hero as unknown as string[]}
+      colors={gradients.hero}
       start={{ x: 0, y: 0 }}
       end={{ x: 1, y: 1 }}
       style={[styles.hero, style]}
@@ -89,7 +93,7 @@ export function Button({
     >
       {variant === "primary" ? (
         <LinearGradient
-          colors={gradients.primary as unknown as string[]}
+          colors={gradients.primary}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 0 }}
           style={styles.btn}
@@ -97,7 +101,13 @@ export function Button({
           {inner}
         </LinearGradient>
       ) : (
-        <View style={[styles.btn, variant === "danger" && { backgroundColor: colors.danger }, isGhost && styles.btnGhost]}>
+        <View
+          style={[
+            styles.btn,
+            variant === "danger" && { backgroundColor: colors.danger },
+            isGhost && styles.btnGhost,
+          ]}
+        >
           {inner}
         </View>
       )}
@@ -134,11 +144,14 @@ export function NavCard({
   style?: ViewStyle;
 }) {
   const scale = useRef(new Animated.Value(1)).current;
-  const to = (v: number) => Animated.spring(scale, { toValue: v, useNativeDriver: true, speed: 40, bounciness: 6 }).start();
+  const to = (v: number) =>
+    Animated.spring(scale, { toValue: v, useNativeDriver: true, speed: 40, bounciness: 6 }).start();
 
   const content = (
     <>
-      <View style={[styles.iconWrap, primary ? styles.iconWrapGrad : { backgroundColor: tint + "1a" }]}>
+      <View
+        style={[styles.iconWrap, primary ? styles.iconWrapGrad : { backgroundColor: tint + "1a" }]}
+      >
         <Ionicons name={icon} size={22} color={primary ? "#fff" : tint} />
       </View>
       <View style={styles.navBody}>
@@ -148,11 +161,18 @@ export function NavCard({
           </Text>
           {badge != null && badge > 0 ? <Badge value={badge > 99 ? "99+" : badge} /> : null}
         </View>
-        <Text style={[styles.navDesc, webBreak, primary && { color: "rgba(255,255,255,0.9)" }]} numberOfLines={2}>
+        <Text
+          style={[styles.navDesc, webBreak, primary && { color: "rgba(255,255,255,0.9)" }]}
+          numberOfLines={2}
+        >
           {desc}
         </Text>
       </View>
-      <Ionicons name="chevron-forward" size={18} color={primary ? "rgba(255,255,255,0.85)" : colors.textDim} />
+      <Ionicons
+        name="chevron-forward"
+        size={18}
+        color={primary ? "rgba(255,255,255,0.85)" : colors.textDim}
+      />
     </>
   );
 
@@ -161,7 +181,7 @@ export function NavCard({
       <Pressable onPress={onPress} onPressIn={() => to(0.97)} onPressOut={() => to(1)}>
         {primary ? (
           <LinearGradient
-            colors={gradients.primary as unknown as string[]}
+            colors={gradients.primary}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
             style={[styles.navBase, shadow]}
@@ -204,7 +224,12 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  btnGhost: { backgroundColor: "transparent", borderWidth: 1, borderColor: colors.border, borderRadius: radius.lg },
+  btnGhost: {
+    backgroundColor: "transparent",
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.lg,
+  },
   btnText: { color: "#fff", fontSize: 16, fontWeight: "800" },
   badge: {
     minWidth: 22,
@@ -224,8 +249,19 @@ const styles = StyleSheet.create({
     borderRadius: radius.lg,
     padding: spacing.md,
   },
-  navCard: { backgroundColor: colors.surface, borderColor: colors.border, borderWidth: 1, ...shadow },
-  iconWrap: { width: 44, height: 44, borderRadius: radius.md, alignItems: "center", justifyContent: "center" },
+  navCard: {
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+    borderWidth: 1,
+    ...shadow,
+  },
+  iconWrap: {
+    width: 44,
+    height: 44,
+    borderRadius: radius.md,
+    alignItems: "center",
+    justifyContent: "center",
+  },
   iconWrapGrad: { backgroundColor: "rgba(255,255,255,0.22)" },
   // minWidth:0 lets the text column shrink so long titles wrap instead of
   // overflowing the card (a no-op on native, required on web flexbox).

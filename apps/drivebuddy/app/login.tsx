@@ -33,7 +33,7 @@ export default function LoginScreen() {
       <View style={styles.inner}>
         <View style={styles.brandWrap}>
           <LinearGradient
-            colors={gradients.primary as unknown as string[]}
+            colors={gradients.primary}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
             style={styles.logo}
@@ -64,7 +64,12 @@ export default function LoginScreen() {
           onChangeText={setPassword}
         />
 
-        <Button label="Sign in" onPress={onSubmit} loading={busy} style={{ marginTop: spacing.sm }} />
+        <Button
+          label="Sign in"
+          onPress={() => void onSubmit()}
+          loading={busy}
+          style={{ marginTop: spacing.sm }}
+        />
 
         {Platform.OS === "web" ? (
           <Pressable

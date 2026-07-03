@@ -29,7 +29,7 @@ export class VehiclesService {
   async create(userId: string, dto: CreateVehicleDto) {
     const count = await this.prisma.vehicle.count({ where: { userId } });
     // First vehicle is always main; otherwise honour the requested flag.
-    const makeMain = count === 0 ? true : dto.isMain ?? false;
+    const makeMain = count === 0 ? true : (dto.isMain ?? false);
 
     try {
       return await this.prisma.$transaction(async (tx) => {
@@ -80,7 +80,10 @@ export class VehiclesService {
       await tx.vehicle.delete({ where: { id } });
       // If the removed vehicle was main, promote the next one.
       if (vehicle.isMain) {
-        const next = await tx.vehicle.findFirst({ where: { userId }, orderBy: { createdAt: "asc" } });
+        const next = await tx.vehicle.findFirst({
+          where: { userId },
+          orderBy: { createdAt: "asc" },
+        });
         if (next) {
           await tx.vehicle.update({ where: { id: next.id }, data: { isMain: true } });
         }

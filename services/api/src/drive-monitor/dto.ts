@@ -1,5 +1,14 @@
 import { Type } from "class-transformer";
-import { ArrayMinSize, IsArray, IsISO8601, IsNumber, IsOptional, IsString, MaxLength, ValidateNested } from "class-validator";
+import {
+  ArrayMinSize,
+  IsArray,
+  IsISO8601,
+  IsNumber,
+  IsOptional,
+  IsString,
+  MaxLength,
+  ValidateNested,
+} from "class-validator";
 
 export class StartRouteDto {
   @IsOptional()

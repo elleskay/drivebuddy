@@ -1,3 +1,5 @@
+import { haversineKm } from "../common/geo";
+
 // Static ERP gantry reference data for cost estimation.
 //
 // The LTA DataMall ERPRates feed gives charge amounts by zone/time but NOT the
@@ -38,16 +40,6 @@ export const ERP_GANTRIES: ErpGantry[] = [
 ];
 
 const DETECT_RADIUS_KM = 0.15; // ~150m: GPS-sample vicinity of a gantry
-
-function haversineKm(aLat: number, aLng: number, bLat: number, bLng: number): number {
-  const R = 6371;
-  const dLat = ((bLat - aLat) * Math.PI) / 180;
-  const dLng = ((bLng - aLng) * Math.PI) / 180;
-  const s =
-    Math.sin(dLat / 2) ** 2 +
-    Math.cos((aLat * Math.PI) / 180) * Math.cos((bLat * Math.PI) / 180) * Math.sin(dLng / 2) ** 2;
-  return 2 * R * Math.asin(Math.sqrt(s));
-}
 
 // ERP only charges inside operating windows. Approximate the passenger-car
 // schedule: weekday peaks charge full, the shoulders around them charge a

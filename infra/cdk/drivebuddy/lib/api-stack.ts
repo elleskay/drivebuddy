@@ -7,10 +7,8 @@ import * as targets from "aws-cdk-lib/aws-events-targets";
 import { Construct } from "constructs";
 import { NestjsApi } from "./constructs/NestjsApi";
 
-// Default to the conventional `services/api` location. Override via
-// PLATFORM_DEMO_API_PATH so platform CI can point at the template service for
-// self-test without rewriting this file.
-const API_REL = process.env.PLATFORM_DEMO_API_PATH ?? "services/api";
+// The NestJS service, relative to the repo root.
+const API_REL = "services/api";
 
 export class ApiStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props?: cdk.StackProps) {
@@ -31,10 +29,7 @@ export class ApiStack extends cdk.Stack {
       environment: {
         DATABASE_URL: process.env.DATABASE_URL ?? "",
         JWT_SECRET: process.env.JWT_SECRET ?? "",
-        JWT_ISSUER: process.env.JWT_ISSUER ?? "mobile-platform",
-        CLASSIFIER_API_URL: process.env.CLASSIFIER_API_URL ?? "",
-        CLASSIFIER_API_KEY: process.env.CLASSIFIER_API_KEY ?? "",
-        DD_SERVICE: process.env.DD_SERVICE ?? "mobile-platform-api",
+        DD_SERVICE: process.env.DD_SERVICE ?? "drivebuddy-api",
         LTA_ACCOUNT_KEY: process.env.LTA_ACCOUNT_KEY ?? "",
         AUDIO_BUCKET: audioBucket.bucketName,
         // The AI assistant's LLM runs on the Anthropic Claude API (not Bedrock):
@@ -43,9 +38,6 @@ export class ApiStack extends cdk.Stack {
         // `||` so an unset GitHub Actions var (empty string) falls back to the default.
         ANTHROPIC_MODEL: process.env.ANTHROPIC_MODEL || "claude-haiku-4-5",
       },
-      // OpenSearch is off by default (a domain is not free). Turn on when you
-      // need clustering of similar reports.
-      enableOpenSearch: process.env.ENABLE_OPENSEARCH === "true",
     });
 
     // The HTTP Lambda runs the AI assistant: it reads/writes the audio bucket and

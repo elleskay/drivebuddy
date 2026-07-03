@@ -2,16 +2,19 @@
 // "worker.handler") so the nodejs runtime doesn't treat a slashed handler as a
 // bare ESM specifier.
 //
-// Phase E: delivers push notifications. The HTTP API enqueues `{ kind: "push" }`
-// jobs (see NotificationsService.enqueuePush); this worker loads the user's
-// registered Expo push tokens and sends via the Expo push service, pruning any
-// tokens Expo reports as no longer registered.
+// Handles three job kinds: "push" (the HTTP API enqueues one per notification,
+// see NotificationsService.enqueuePush; this worker loads the user's registered
+// Expo push tokens, sends via the Expo push service, and prunes tokens Expo
+// reports as no longer registered), "analyze-all" (daily), and
+// "pre-drive-sweep" (hourly), both fired by EventBridge schedules.
 import type { SQSEvent, SQSBatchResponse, SQSRecord } from "aws-lambda";
+import { Logger } from "@nestjs/common";
 import { PrismaClient } from "@prisma/client";
 import { generateForUser, computeInsights } from "./route-analysis/analysis";
 
 // Reused across warm invocations (one client/connection per container).
 const prisma = new PrismaClient();
+const log = new Logger("worker");
 
 // Call the Expo push service over HTTP directly (no SDK). expo-server-sdk is
 // ESM-only and can't be require()'d from the CommonJS bundle nest build emits
@@ -60,7 +63,7 @@ async function handlePush(job: PushJob): Promise<void> {
       body: JSON.stringify(chunk),
     });
     if (!res.ok) {
-      console.error(`expo push HTTP ${res.status}: ${await res.text()}`);
+      log.error(`expo push HTTP ${res.status}: ${await res.text()}`);
       continue;
     }
     const json = (await res.json()) as { data?: ExpoTicket[] };
@@ -113,10 +116,10 @@ async function handleAnalyzeAll(): Promise<void> {
       });
       notified++;
     } catch (err) {
-      console.error(`analyze-all: user ${userId} failed: ${(err as Error).message}`);
+      log.error(`analyze-all: user ${userId} failed: ${(err as Error).message}`);
     }
   }
-  console.log(`analyze-all: processed ${users.length} user(s), notified ${notified}`);
+  log.log(`analyze-all: processed ${users.length} user(s), notified ${notified}`);
 }
 
 // ---- Pre-drive intelligence ------------------------------------------------
@@ -128,11 +131,6 @@ function sgtParts(now: Date): { day: number; hour: number } {
   const sgt = new Date(now.getTime() + 8 * 3_600_000);
   return { day: sgt.getUTCDay(), hour: sgt.getUTCHours() };
 }
-function startOfSgtDayUtc(now: Date): Date {
-  const sgt = new Date(now.getTime() + 8 * 3_600_000);
-  const midnightSgtAsUtc = Date.UTC(sgt.getUTCFullYear(), sgt.getUTCMonth(), sgt.getUTCDate());
-  return new Date(midnightSgtAsUtc - 8 * 3_600_000);
-}
 function fmtHour(h: number): string {
   const am = h < 12;
   const hr = h % 12 === 0 ? 12 : h % 12;
@@ -142,7 +140,9 @@ function fmtHour(h: number): string {
 async function liveWeatherSummary(): Promise<string | null> {
   try {
     const res = await fetch(`${DATA_GOV}/2-hour-weather-forecast`);
-    const body = (await res.json()) as { items?: { forecasts?: { area: string; forecast: string }[] }[] };
+    const body = (await res.json()) as {
+      items?: { forecasts?: { area: string; forecast: string }[] }[];
+    };
     const forecasts = body.items?.[0]?.forecasts ?? [];
     if (!forecasts.length) return null;
     const counts = new Map<string, number>();
@@ -177,7 +177,7 @@ async function handlePreDriveSweep(): Promise<void> {
   const now = new Date();
   const { day, hour } = sgtParts(now);
   if (day === 0 || day === 6) {
-    console.log("pre-drive: weekend in SGT, skipping");
+    log.log("pre-drive: weekend in SGT, skipping");
     return;
   }
 
@@ -220,7 +220,11 @@ async function handlePreDriveSweep(): Promise<void> {
       const bits: string[] = [];
       if (weather) bits.push(`weather looks ${weather.toLowerCase()}`);
       if (traffic != null) {
-        bits.push(traffic > 0 ? `${traffic} traffic incident${traffic > 1 ? "s" : ""} reported` : "roads are clear");
+        bits.push(
+          traffic > 0
+            ? `${traffic} traffic incident${traffic > 1 ? "s" : ""} reported`
+            : "roads are clear",
+        );
       }
       const erpPeak = (match.hour >= 7 && match.hour < 10) || (match.hour >= 17 && match.hour < 20);
       if (erpPeak) {
@@ -234,7 +238,13 @@ async function handlePreDriveSweep(): Promise<void> {
       const body = `Your usual ${match.label} is around ${fmtHour(match.hour)}.${bits.length ? " " + capitalise(bits.join("; ")) + "." : ""}`;
 
       const notification = await prisma.notification.create({
-        data: { userId, type: "PRE_DRIVE", title, body, data: { kind: "pre-drive", slot: match.slot } },
+        data: {
+          userId,
+          type: "PRE_DRIVE",
+          title,
+          body,
+          data: { kind: "pre-drive", slot: match.slot },
+        },
       });
       await handlePush({
         kind: "push",
@@ -246,10 +256,10 @@ async function handlePreDriveSweep(): Promise<void> {
       });
       sent++;
     } catch (err) {
-      console.error(`pre-drive: user ${userId} failed: ${(err as Error).message}`);
+      log.error(`pre-drive: user ${userId} failed: ${(err as Error).message}`);
     }
   }
-  console.log(`pre-drive: SGT ${hour}:00, scanned ${users.length} user(s), sent ${sent}`);
+  log.log(`pre-drive: SGT ${hour}:00, scanned ${users.length} user(s), sent ${sent}`);
 }
 
 function capitalise(s: string): string {
@@ -265,7 +275,7 @@ async function handleRecord(record: SQSRecord): Promise<void> {
   } else if (job.kind === "pre-drive-sweep") {
     await handlePreDriveSweep();
   } else {
-    console.log(`worker: unknown job kind "${job.kind}"; ignoring`);
+    log.warn(`worker: unknown job kind "${job.kind}"; ignoring`);
   }
 }
 
@@ -275,7 +285,7 @@ export async function handler(event: SQSEvent): Promise<SQSBatchResponse> {
     try {
       await handleRecord(record);
     } catch (err) {
-      console.error(`worker: record ${record.messageId} failed: ${(err as Error).message}`);
+      log.error(`worker: record ${record.messageId} failed: ${(err as Error).message}`);
       batchItemFailures.push({ itemIdentifier: record.messageId });
     }
   }

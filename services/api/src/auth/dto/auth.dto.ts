@@ -1,4 +1,4 @@
-import { IsEmail, IsOptional, IsString, MaxLength, MinLength } from "class-validator";
+import { IsEmail, IsString, MaxLength, MinLength } from "class-validator";
 
 export class RegisterDto {
   @IsEmail()
@@ -22,17 +22,4 @@ export class LoginDto {
   @IsString()
   @MinLength(1)
   password!: string;
-}
-
-export class SocialLoginDto {
-  @IsString()
-  provider!: "google" | "apple";
-
-  /** The id_token / identity token from the provider, verified server-side. */
-  @IsString()
-  idToken!: string;
-
-  @IsOptional()
-  @IsString()
-  fullName?: string;
 }

@@ -41,7 +41,8 @@ export class NotificationsService {
   private readonly logger = new Logger(NotificationsService.name);
   // The AWS SDK v3 is provided by the Lambda runtime; region is auto-detected there.
   private readonly sqs = new SQSClient({});
-  private readonly queueUrl = process.env.REPORTS_QUEUE_URL;
+  // Push/job queue URL, injected by the NestjsApi construct at deploy time.
+  private readonly queueUrl = process.env.PUSH_QUEUE_URL;
 
   constructor(private readonly prisma: PrismaService) {}
 
@@ -150,7 +151,7 @@ export class NotificationsService {
     data?: Prisma.InputJsonValue,
   ) {
     if (!this.queueUrl) {
-      this.logger.debug("REPORTS_QUEUE_URL unset; skipping push enqueue");
+      this.logger.debug("PUSH_QUEUE_URL unset; skipping push enqueue");
       return;
     }
     try {

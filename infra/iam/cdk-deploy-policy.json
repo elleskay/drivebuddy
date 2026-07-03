@@ -57,13 +57,13 @@
       "Resource": "*"
     },
     {
-      "Sid": "OpenSearch",
+      "Sid": "EventBridgeSchedules",
       "Effect": "Allow",
-      "Action": ["es:*"],
+      "Action": ["events:*"],
       "Resource": "*"
     },
     {
-      "Sid": "S3ForCdkAssetsAndAttachments",
+      "Sid": "S3ForCdkAssetsAndAudio",
       "Effect": "Allow",
       "Action": ["s3:*"],
       "Resource": "*"
@@ -75,7 +75,7 @@
       "Resource": "*",
       "Condition": {
         "StringEquals": {
-          "iam:PassedToService": ["lambda.amazonaws.com", "es.amazonaws.com"]
+          "iam:PassedToService": ["lambda.amazonaws.com"]
         }
       }
     },

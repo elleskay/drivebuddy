@@ -6,9 +6,15 @@ on:
   push:
     branches: [main]
 
+permissions:
+  contents: read
+
 concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
+
+env:
+  NODE_VERSION: "22"
 
 jobs:
   workflow-lint:
@@ -21,57 +27,101 @@ jobs:
         with:
           args: -color
 
+  commitlint:
+    name: Commitlint (PR commits)
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v6
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - run: npm ci
+      - name: Lint commit messages
+        run: npx commitlint --from ${{ github.event.pull_request.base.sha }} --to ${{ github.event.pull_request.head.sha }} --verbose
+
   typecheck:
-    name: Typecheck
+    name: Typecheck (all workspaces)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-node@v6
         with:
-          node-version: 22
+          node-version: ${{ env.NODE_VERSION }}
           cache: npm
       - run: npm ci
-      - run: npm run typecheck --if-present
+      - run: npm run typecheck
 
   lint:
-    name: Lint
+    name: Lint (all workspaces)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-node@v6
         with:
-          node-version: 22
+          node-version: ${{ env.NODE_VERSION }}
           cache: npm
       - run: npm ci
-      - run: npm run lint --if-present
+      - run: npm run lint
+
+  format:
+    name: Prettier (format check)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - run: npm ci
+      - run: npm run format:check
+
+  test:
+    name: Test (API unit tests)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - run: npm ci
+      - run: npm test
 
   app-check:
-    name: Expo app (typecheck + doctor)
+    name: Expo app (doctor + web export)
     runs-on: ubuntu-latest
     needs: [typecheck, lint]
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-node@v6
         with:
-          node-version: 22
+          node-version: ${{ env.NODE_VERSION }}
           cache: npm
       - run: npm ci
-      - name: Typecheck demo app
-        working-directory: apps/drivebuddy
-        run: npm run typecheck
-      - name: expo-doctor
+      - name: expo-doctor (advisory)
+        # Advisory only: expo-doctor checks against the live npm registry, so it
+        # can start failing with no change in this repo.
         working-directory: apps/drivebuddy
         run: npx --yes expo-doctor@latest || true
+      - name: Expo web export (proves the Pages demo still builds)
+        working-directory: apps/drivebuddy
+        env:
+          EXPO_PUBLIC_API_URL: https://example.invalid
+        run: npx expo export --platform web
 
   api-build:
-    name: Build demo API (NestJS)
+    name: Build API (NestJS)
     runs-on: ubuntu-latest
     needs: [typecheck, lint]
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-node@v6
         with:
-          node-version: 22
+          node-version: ${{ env.NODE_VERSION }}
           cache: npm
       - run: npm ci
       - name: Nest build
@@ -79,19 +129,19 @@ jobs:
         run: npm run build
 
   cdk-synth:
-    name: CDK synth (proves construct works against demo API)
+    name: CDK synth
     runs-on: ubuntu-latest
     needs: api-build
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-node@v6
         with:
-          node-version: 22
+          node-version: ${{ env.NODE_VERSION }}
           cache: npm
       - run: npm ci
       - name: Install CDK package deps
         working-directory: infra/cdk/drivebuddy
-        run: npm install
+        run: npm ci
       - name: cdk synth
         working-directory: infra/cdk/drivebuddy
         env:
@@ -99,20 +149,7 @@ jobs:
           CDK_DEFAULT_REGION: ap-southeast-1
           DATABASE_URL: postgres://placeholder
           JWT_SECRET: placeholder
-          PLATFORM_DEMO_API_PATH: services/api
         run: npx cdk synth
-
-  test:
-    name: Test
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v6
-      - uses: actions/setup-node@v6
-        with:
-          node-version: 22
-          cache: npm
-      - run: npm ci
-      - run: npm test --if-present
 
   spec-test:
     name: spec-test (build + gate self-test)
@@ -121,7 +158,7 @@ jobs:
       - uses: actions/checkout@v6
       - uses: actions/setup-node@v6
         with:
-          node-version: 22
+          node-version: ${{ env.NODE_VERSION }}
           cache: npm
       - run: npm ci
       - name: Build @platform/spec-test (dual ESM + CJS)
@@ -166,8 +203,8 @@ jobs:
         with:
           fetch-depth: 0 # need full history to find the commit that last touched each artifact
       - name: Verify signed-commit attestations
-        # Skips while allowed-signers is empty (template default); enforces and
-        # fails closed once a real app populates it.
+        # Skips while apps/drivebuddy/verification is empty; enforces and fails
+        # closed once verification artifacts land with an allowed-signers list.
         run: bash scripts/verify-attestations.sh apps/drivebuddy/verification
       - name: Guard self-test (signed artifacts + empty allow-list must exit 2)
         run: |

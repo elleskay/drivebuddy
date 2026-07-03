@@ -65,7 +65,8 @@ export default function RecommendationsScreen() {
         ListHeaderComponent={insights ? <InsightsHeader insights={insights} /> : null}
         ListEmptyComponent={
           <Text style={styles.empty}>
-            No recommendations yet. Record a few drives and pull to refresh. Tips appear as DriveBuddy learns your patterns.
+            No recommendations yet. Record a few drives and pull to refresh. Tips appear as
+            DriveBuddy learns your patterns.
           </Text>
         }
         renderItem={({ item }) => (
@@ -77,7 +78,7 @@ export default function RecommendationsScreen() {
               <Text style={styles.cardTitle}>{item.title}</Text>
               <Text style={styles.cardBody}>{item.body}</Text>
             </View>
-            <Pressable onPress={() => dismiss(item.id)} hitSlop={10}>
+            <Pressable onPress={() => void dismiss(item.id)} hitSlop={10}>
               <Ionicons name="close-circle" size={22} color={colors.textDim} />
             </Pressable>
           </View>
@@ -123,7 +124,6 @@ function formatHour(h: number): string {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#f5f7fb" },
-  center: { flex: 1, backgroundColor: "#f5f7fb", justifyContent: "center", alignItems: "center" },
   list: { padding: 16, gap: 10 },
   headerWrap: { gap: 10, marginBottom: 4 },
   section: { color: "#5b6b86", fontSize: 13, fontWeight: "700", marginTop: 6, marginLeft: 4 },
@@ -139,7 +139,13 @@ const styles = StyleSheet.create({
   },
   statValue: { color: "#0f172a", fontSize: 18, fontWeight: "800" },
   statLabel: { color: "#5b6b86", fontSize: 11, marginTop: 3 },
-  empty: { color: "#5b6b86", textAlign: "center", marginTop: 16, paddingHorizontal: 12, lineHeight: 20 },
+  empty: {
+    color: "#5b6b86",
+    textAlign: "center",
+    marginTop: 16,
+    paddingHorizontal: 12,
+    lineHeight: 20,
+  },
   card: {
     flexDirection: "row",
     alignItems: "center",

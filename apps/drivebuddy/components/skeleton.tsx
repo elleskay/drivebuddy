@@ -31,13 +31,18 @@ export function Skeleton({
   return (
     <View
       onLayout={(e) => setW(e.nativeEvent.layout.width)}
-      style={[{ width, height, borderRadius: r, backgroundColor: colors.skeleton, overflow: "hidden" }, style]}
+      style={[
+        { width, height, borderRadius: r, backgroundColor: colors.skeleton, overflow: "hidden" },
+        style,
+      ]}
     >
       {w > 0 ? (
         <Animated.View
           style={{
             ...StyleSheet.absoluteFillObject,
-            transform: [{ translateX: x.interpolate({ inputRange: [0, 1], outputRange: [-w, w] }) }],
+            transform: [
+              { translateX: x.interpolate({ inputRange: [0, 1], outputRange: [-w, w] }) },
+            ],
           }}
         >
           <LinearGradient

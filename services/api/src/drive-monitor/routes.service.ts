@@ -2,7 +2,7 @@ import { Injectable, NotFoundException } from "@nestjs/common";
 import { PrismaService } from "../prisma/prisma.service";
 import { TripsService } from "../trips/trips.service";
 import { NotificationsService } from "../notifications/notifications.service";
-import { routeStats } from "./geo";
+import { routeStats } from "../common/geo";
 import { AddPointsDto, StartRouteDto } from "./dto";
 
 @Injectable()
@@ -69,7 +69,8 @@ export class RoutesService {
 
     // Notify the driver their post-trip summary is ready (honours settings; the
     // worker fans it out to push). Best-effort - never fail completion on this.
-    const totalCost = Number(summary.fuelCost) + Number(summary.erpCost) + Number(summary.parkingCost);
+    const totalCost =
+      Number(summary.fuelCost) + Number(summary.erpCost) + Number(summary.parkingCost);
     await this.notifications
       .create(userId, {
         type: "POST_TRIP",

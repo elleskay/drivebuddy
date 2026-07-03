@@ -32,8 +32,7 @@ updates:
       # react-native is 0.x: a "minor" bump (0.74 -> 0.85) is breaking. Keep it on
       # the Expo-aligned 0.74.x line; only patches flow automatically.
       - dependency-name: "react-native"
-        update-types:
-          ["version-update:semver-major", "version-update:semver-minor"]
+        update-types: ["version-update:semver-major", "version-update:semver-minor"]
       # NestJS packages must share a major; upgrade the whole set deliberately.
       - dependency-name: "@nestjs/*"
         update-types: ["version-update:semver-major"]
@@ -58,7 +57,7 @@ updates:
 
   # The CDK packages are standalone (own package.json + lockfile), not part of
   # the root workspaces, so they need their own entries. The root "/" entry
-  # above covers the workspaces (apps/_demo, services/_template, packages/spec-test).
+  # above covers the workspaces (apps/drivebuddy, services/api, packages/spec-test).
   - package-ecosystem: "npm"
     directory: "/infra/cdk/_setup"
     schedule:
@@ -70,7 +69,7 @@ updates:
         update-types: ["version-update:semver-major"]
 
   - package-ecosystem: "npm"
-    directory: "/infra/cdk/_template"
+    directory: "/infra/cdk/drivebuddy"
     schedule:
       interval: "weekly"
     ignore:

@@ -1,34 +1,36 @@
 # Secure Software Development Lifecycle
 
-What this template gives you out of the box, and what each app is expected to maintain.
+The controls this repo ships with, and the practices the code is expected to maintain.
 
-## What the template provides
+## Pipeline controls
 
-| Control | Where |
-|---|---|
-| Dependency scanning | `.github/dependabot.yml` |
-| Code scanning (SAST) | `.github/workflows/security.yml` (CodeQL) |
-| Secret scanning | GitHub native + gitleaks workflow |
-| `npm audit` on CI | `.github/workflows/security.yml` |
-| Branch protection | manual GitHub setting (see SETUP.md) |
-| Conventional commits | `commitlint.config.mjs` |
-| PR template with security checkbox | `.github/pull_request_template.md` |
-| Disclosure policy | `SECURITY.md` |
+| Control                            | Where                                     |
+| ---------------------------------- | ----------------------------------------- |
+| Dependency scanning                | `.github/dependabot.yml`                  |
+| Code scanning (SAST)               | `.github/workflows/security.yml` (CodeQL) |
+| Secret scanning                    | GitHub native + gitleaks workflow         |
+| `npm audit` on CI                  | `.github/workflows/security.yml`          |
+| Branch protection                  | manual GitHub setting (see SETUP.md)      |
+| Conventional commits               | `commitlint.config.mjs`                   |
+| PR template with security checkbox | `.github/pull_request_template.md`        |
+| Disclosure policy                  | `SECURITY.md`                             |
 
-## What each app must add
+## Application practices
 
-| Control | How |
-|---|---|
-| API hardening | Helmet on the NestJS API; the client is native, so there is no web header surface |
-| Input validation | class-validator on every controller DTO; Zod where a schema is shared with the app |
-| Auth | JWT access tokens issued by the API; store on device in expo-secure-store, never AsyncStorage |
-| Authorization | NestJS guards per route, principle of least privilege |
-| Rate limiting | NestJS throttler (or AWS WAF on API Gateway) on auth and report routes |
-| Transport | TLS only: iOS ATS on, Android cleartext off via the `expo-build-properties` plugin |
-| Secrets in prod | GitHub Actions secrets, Lambda env, and EAS secrets. Nothing secret ships in the app bundle |
-| Error tracking | Sentry (catches unhandled exceptions that may leak info) |
-| Logging | Structured JSON logs, no PII, no secrets |
-| Database access | Parameterized queries only (ORM enforces this) |
+In place today:
+
+| Control          | How                                                                                      |
+| ---------------- | ---------------------------------------------------------------------------------------- |
+| Input validation | class-validator on every controller DTO; global `ValidationPipe` rejects unknown fields  |
+| Auth             | JWT access + refresh tokens issued by the API; stored on device in expo-secure-store     |
+| Authorization    | `JwtAuthGuard` on every non-public route; the user id comes from the JWT, never the body |
+| Transport        | TLS only: iOS ATS on, Android cleartext off via the `expo-build-properties` plugin       |
+| Secrets in prod  | GitHub Actions secrets -> Lambda env at deploy; nothing secret ships in the app bundle   |
+| Database access  | Prisma only (parameterized queries)                                                      |
+| Logging          | Nest `Logger` everywhere; no tokens or credentials logged                                |
+
+Worth adding as the product grows: rate limiting on the auth routes (NestJS
+throttler or AWS WAF) and error tracking (Sentry).
 
 ## Threat model basics
 

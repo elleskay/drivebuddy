@@ -23,7 +23,9 @@ export default function RegisterScreen() {
     try {
       await signUp(email.trim(), password, fullName.trim());
     } catch (e) {
-      setError(e instanceof ApiError ? e.message : "Could not create account. Check your connection.");
+      setError(
+        e instanceof ApiError ? e.message : "Could not create account. Check your connection.",
+      );
     } finally {
       setBusy(false);
     }
@@ -62,8 +64,16 @@ export default function RegisterScreen() {
           onChangeText={setPassword}
         />
 
-        <Pressable style={[styles.button, busy && styles.buttonDisabled]} onPress={onSubmit} disabled={busy}>
-          {busy ? <ActivityIndicator color="#fff" /> : <Text style={styles.buttonText}>Create account</Text>}
+        <Pressable
+          style={[styles.button, busy && styles.buttonDisabled]}
+          onPress={() => void onSubmit()}
+          disabled={busy}
+        >
+          {busy ? (
+            <ActivityIndicator color="#fff" />
+          ) : (
+            <Text style={styles.buttonText}>Create account</Text>
+          )}
         </Pressable>
 
         <Link href="/login" style={styles.linkRow}>
@@ -90,7 +100,13 @@ const styles = StyleSheet.create({
     color: "#0f172a",
     fontSize: 16,
   },
-  button: { backgroundColor: "#2563eb", borderRadius: 12, paddingVertical: 15, alignItems: "center", marginTop: 6 },
+  button: {
+    backgroundColor: "#2563eb",
+    borderRadius: 12,
+    paddingVertical: 15,
+    alignItems: "center",
+    marginTop: 6,
+  },
   buttonDisabled: { opacity: 0.6 },
   buttonText: { color: "#fff", fontSize: 16, fontWeight: "700" },
   linkRow: { marginTop: 18, textAlign: "center" },

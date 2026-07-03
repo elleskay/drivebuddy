@@ -15,7 +15,10 @@ export interface RoutePlan {
 }
 
 function toOption(r: { distance: number; duration: number }): RouteOption {
-  return { distanceKm: Math.round(r.distance / 100) / 10, durationMin: Math.round(r.duration / 60) };
+  return {
+    distanceKm: Math.round(r.distance / 100) / 10,
+    durationMin: Math.round(r.duration / 60),
+  };
 }
 
 /** Fetch the fastest driving route (and an alternative, if any) between two points. */
@@ -31,7 +34,10 @@ export async function fetchRoute(
       headers: { "User-Agent": "DriveBuddy/1.0 (+https://github.com/elleskay/drivebuddy)" },
     });
     if (!res.ok) return null;
-    const body = (await res.json()) as { code?: string; routes?: { distance: number; duration: number }[] };
+    const body = (await res.json()) as {
+      code?: string;
+      routes?: { distance: number; duration: number }[];
+    };
     if (body.code !== "Ok" || !body.routes?.length) return null;
     return {
       primary: toOption(body.routes[0]!),

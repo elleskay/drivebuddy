@@ -1,7 +1,15 @@
 import { Stack, useRouter, useSegments } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useEffect } from "react";
-import { ActivityIndicator, Platform, Pressable, StyleSheet, Text, View, type ViewStyle } from "react-native";
+import {
+  ActivityIndicator,
+  Platform,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+  type ViewStyle,
+} from "react-native";
 import { AuthProvider, useAuth } from "@/lib/auth-context";
 // Registers the background location task (TaskManager.defineTask) at app start.
 import "@/lib/location-task";
@@ -57,7 +65,14 @@ function Gate() {
 
   if (!ready) {
     return (
-      <View style={{ flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: "#f5f7fb" }}>
+      <View
+        style={{
+          flex: 1,
+          justifyContent: "center",
+          alignItems: "center",
+          backgroundColor: "#f5f7fb",
+        }}
+      >
         <ActivityIndicator color="#2563eb" size="large" />
       </View>
     );

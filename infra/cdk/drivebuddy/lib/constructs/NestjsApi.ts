@@ -8,31 +8,22 @@ import * as sqs from "aws-cdk-lib/aws-sqs";
 import * as apigwv2 from "aws-cdk-lib/aws-apigatewayv2";
 import { HttpLambdaIntegration } from "aws-cdk-lib/aws-apigatewayv2-integrations";
 import { SqsEventSource } from "aws-cdk-lib/aws-lambda-event-sources";
-import * as opensearch from "aws-cdk-lib/aws-opensearchservice";
-import * as ec2 from "aws-cdk-lib/aws-ec2";
 import { Construct } from "constructs";
 
 export interface NestjsApiProps {
   /**
    * Path to the NestJS service directory. Must contain `src/lambda.ts` (HTTP
-   * handler) and `src/worker.ts` (SQS worker, a root re-export of
-   * `src/reports/reports.consumer.ts`). The worker entry must be at the bundle
-   * root: the nodejs20.x runtime resolves a slashed handler as a bare ESM
-   * specifier and fails to load a nested file (see the WorkerFunction handler).
+   * handler) and `src/worker.ts` (SQS worker). Both entries must be at the
+   * bundle root: the nodejs20.x runtime resolves a slashed handler as a bare
+   * ESM specifier and fails to load a nested file (see the WorkerFunction
+   * handler).
    */
   readonly servicePath: string;
 
   /**
-   * Monorepo root for esbuild bundling (where the root package-lock.json lives).
-   * Defaults to two levels above `servicePath` (the `services/<name>` layout).
-   * Override if your service sits elsewhere.
-   */
-  readonly monorepoRoot?: string;
-
-  /**
-   * Environment variables set on both Lambdas. Include DATABASE_URL, JWT_SECRET,
-   * and any classifier/observability keys. REPORTS_QUEUE_URL and
-   * OPENSEARCH_ENDPOINT are injected by the construct, do not set them here.
+   * Environment variables set on both Lambdas. Include DATABASE_URL,
+   * JWT_SECRET, and any app keys (LTA, Anthropic, DataDog). PUSH_QUEUE_URL is
+   * injected by the construct, do not set it here.
    */
   readonly environment?: Record<string, string>;
 
@@ -46,16 +37,9 @@ export interface NestjsApiProps {
   readonly logRetention?: logs.RetentionDays;
 
   /**
-   * Provision an OpenSearch domain for clustering similar reports. Off by
-   * default because a domain is not free. When true, OPENSEARCH_ENDPOINT is set
-   * on the worker Lambda automatically.
-   */
-  readonly enableOpenSearch?: boolean;
-
-  /**
    * Preserve CloudFormation logical IDs for in-place upgrades. Maps
    * "httpFunction" | "workerFunction" | "queue" to original logical IDs to avoid
-   * destroy+recreate (CLAUDE.md gotcha #10).
+   * destroy+recreate (CLAUDE.md gotcha on construct refactors).
    */
   readonly logicalIdOverrides?: {
     httpFunction?: string;
@@ -67,15 +51,13 @@ export interface NestjsApiProps {
 /**
  * Deploys a NestJS API as a serverless stack:
  *  - HTTP Lambda (serverless-express) behind an API Gateway HTTP API
- *  - SQS report-intake queue + DLQ
+ *  - SQS job queue (push fan-out, scheduled jobs) + DLQ
  *  - Worker Lambda consuming the queue with partial-batch responses
- *  - Optional OpenSearch domain for clustering
  *
  * Encodes the gotchas you would otherwise learn in production:
  *  - The Nest app is bootstrapped once and cached across warm invocations
  *    (handled in the service's src/lambda.ts).
  *  - SQS consumers must be idempotent; the worker uses reportBatchItemFailures.
- *  - Large attachments go to S3 via presigned URLs, not the 10 MB API body.
  *  - Env vars are baked at synth time; pass them via `environment`.
  */
 export class NestjsApi extends Construct {
@@ -83,7 +65,6 @@ export class NestjsApi extends Construct {
   public readonly queue: sqs.Queue;
   public readonly httpFunction: lambda.Function;
   public readonly workerFunction: lambda.Function;
-  public readonly domain?: opensearch.Domain;
 
   constructor(scope: Construct, id: string, props: NestjsApiProps) {
     super(scope, id);
@@ -92,6 +73,9 @@ export class NestjsApi extends Construct {
     const overrides = props.logicalIdOverrides ?? {};
     const baseEnv = props.environment ?? {};
 
+    // Construct ids ("ReportsQueue"/"ReportsDlq") are kept from the template this
+    // repo was cloned from: renaming them would change the CloudFormation logical
+    // IDs and destroy/recreate the live queues.
     const deadLetterQueue = new sqs.Queue(this, "ReportsDlq", {
       retentionPeriod: cdk.Duration.days(14),
       enforceSSL: true,
@@ -104,18 +88,6 @@ export class NestjsApi extends Construct {
     });
     if (overrides.queue) {
       (this.queue.node.defaultChild as cdk.CfnResource).overrideLogicalId(overrides.queue);
-    }
-
-    if (props.enableOpenSearch) {
-      this.domain = new opensearch.Domain(this, "ScamSearch", {
-        version: opensearch.EngineVersion.OPENSEARCH_2_13,
-        capacity: { dataNodes: 1, dataNodeInstanceType: "t3.small.search" },
-        ebs: { volumeSize: 10, volumeType: ec2.EbsDeviceVolumeType.GP3 },
-        nodeToNodeEncryption: true,
-        encryptionAtRest: { enabled: true },
-        enforceHttps: true,
-        removalPolicy: cdk.RemovalPolicy.DESTROY,
-      });
     }
 
     // Build the service for Lambda once, at synth time: `nest build` (tsc, which
@@ -198,8 +170,7 @@ export class NestjsApi extends Construct {
       environment: {
         NODE_ENV: "production",
         ...baseEnv,
-        REPORTS_QUEUE_URL: this.queue.queueUrl,
-        ...(this.domain ? { OPENSEARCH_ENDPOINT: `https://${this.domain.domainEndpoint}` } : {}),
+        PUSH_QUEUE_URL: this.queue.queueUrl,
       },
     };
 
@@ -224,8 +195,8 @@ export class NestjsApi extends Construct {
       ...commonFn,
       code: lambda.Code.fromAsset(stage),
       // Root-level entry (no slash). A slashed handler like
-      // "reports/reports.consumer.handler" is resolved as a bare ESM specifier by
-      // the nodejs20.x runtime and fails init with "Cannot find module 'reports'".
+      // "jobs/queue.consumer.handler" is resolved as a bare ESM specifier by
+      // the nodejs20.x runtime and fails init with "Cannot find module 'jobs'".
       handler: "worker.handler",
       memorySize: props.workerMemoryMb ?? 1024,
       timeout: cdk.Duration.seconds(60),
@@ -249,10 +220,6 @@ export class NestjsApi extends Construct {
         maxBatchingWindow: cdk.Duration.seconds(5),
       }),
     );
-    if (this.domain) {
-      this.domain.grantWrite(this.workerFunction);
-      this.domain.grantRead(this.httpFunction);
-    }
 
     this.httpApi = new apigwv2.HttpApi(this, "HttpApi", {
       defaultIntegration: new HttpLambdaIntegration("HttpIntegration", this.httpFunction),
@@ -264,13 +231,7 @@ export class NestjsApi extends Construct {
     });
     new cdk.CfnOutput(cdk.Stack.of(this), `${id}QueueUrl`, {
       value: this.queue.queueUrl,
-      description: "Report intake queue URL.",
+      description: "Push/job queue URL.",
     });
-    if (this.domain) {
-      new cdk.CfnOutput(cdk.Stack.of(this), `${id}OpenSearchEndpoint`, {
-        value: this.domain.domainEndpoint,
-        description: "OpenSearch domain endpoint.",
-      });
-    }
   }
 }

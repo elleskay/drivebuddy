@@ -2,7 +2,7 @@
   "name": "drivebuddy",
   "version": "0.1.0",
   "private": true,
-  "description": "TypeScript platform template for shipping React Native (Expo) apps with a NestJS API to AWS serverless.",
+  "description": "DriveBuddy: an AI driving companion for Singapore. Expo app + NestJS API on AWS serverless.",
   "workspaces": [
     "apps/*",
     "services/*",
@@ -10,8 +10,9 @@
   ],
   "scripts": {
     "setup": "bash scripts/connect.sh",
-    "typecheck": "echo 'Platform template has no app source. Apps add their own typecheck script.'",
-    "lint": "echo 'Platform template has no app source. Apps add their own lint script.'",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "lint": "npm run lint --workspaces --if-present",
+    "test": "npm test --workspaces --if-present",
     "format": "prettier --write .",
     "format:check": "prettier --check ."
   },

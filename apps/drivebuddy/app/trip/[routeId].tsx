@@ -13,7 +13,7 @@ export default function TripScreen() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    (async () => {
+    void (async () => {
       try {
         const [r, t] = await Promise.all([
           api.getRoute(routeId),
@@ -56,7 +56,11 @@ export default function TripScreen() {
         <View style={styles.statsRow}>
           <Stat value={(route?.totalDistance ?? 0).toFixed(2)} unit="km" label="Distance" />
           <Stat value={String(trip?.durationMin ?? 0)} unit="min" label="Duration" />
-          <Stat value={Math.round(route?.averageSpeed ?? 0).toString()} unit="km/h" label="Avg speed" />
+          <Stat
+            value={Math.round(route?.averageSpeed ?? 0).toString()}
+            unit="km/h"
+            label="Avg speed"
+          />
         </View>
 
         <View style={styles.card}>
@@ -92,7 +96,12 @@ function RouteMap({ points }: { points: { latitude: number; longitude: number }[
   const H = 220;
   if (points.length < 2) {
     return (
-      <View style={[styles.map, { width: W, height: H, justifyContent: "center", alignItems: "center" }]}>
+      <View
+        style={[
+          styles.map,
+          { width: W, height: H, justifyContent: "center", alignItems: "center" },
+        ]}
+      >
         <Text style={styles.muted}>Not enough GPS points to draw the route.</Text>
       </View>
     );
@@ -134,23 +143,44 @@ function RouteMap({ points }: { points: { latitude: number; longitude: number }[
     }
   }
 
-  const screen = points.map((p) => ({ x: worldX(p.longitude, z) - originX, y: worldY(p.latitude, z) - originY }));
+  const screen = points.map((p) => ({
+    x: worldX(p.longitude, z) - originX,
+    y: worldY(p.latitude, z) - originY,
+  }));
   const polyline = screen.map((p) => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(" ");
-  const start = screen[0]!;
-  const end = screen[screen.length - 1]!;
+  const start = screen[0];
+  const end = screen[screen.length - 1];
 
   return (
     <View style={[styles.map, { width: W, height: H }]}>
       {tiles.map((t) => (
         <Image
           key={t.key}
-          source={{ uri: t.uri, headers: { "User-Agent": "DriveBuddy/1.0 (https://github.com/elleskay/drivebuddy)" } }}
+          source={{
+            uri: t.uri,
+            headers: { "User-Agent": "DriveBuddy/1.0 (https://github.com/elleskay/drivebuddy)" },
+          }}
           style={{ position: "absolute", left: t.left, top: t.top, width: TILE, height: TILE }}
         />
       ))}
       <Svg width={W} height={H} style={StyleSheet.absoluteFill}>
-        <Polyline points={polyline} fill="none" stroke="#1d4ed8" strokeOpacity={0.35} strokeWidth={8} strokeLinejoin="round" strokeLinecap="round" />
-        <Polyline points={polyline} fill="none" stroke="#2563eb" strokeWidth={5} strokeLinejoin="round" strokeLinecap="round" />
+        <Polyline
+          points={polyline}
+          fill="none"
+          stroke="#1d4ed8"
+          strokeOpacity={0.35}
+          strokeWidth={8}
+          strokeLinejoin="round"
+          strokeLinecap="round"
+        />
+        <Polyline
+          points={polyline}
+          fill="none"
+          stroke="#2563eb"
+          strokeWidth={5}
+          strokeLinejoin="round"
+          strokeLinecap="round"
+        />
         <Circle cx={start.x} cy={start.y} r={7} fill="#22c55e" stroke="#fff" strokeWidth={2} />
         <Circle cx={end.x} cy={end.y} r={7} fill="#dc2626" stroke="#fff" strokeWidth={2} />
       </Svg>
@@ -181,7 +211,6 @@ function CostRow({ label, value, bold }: { label: string; value: number; bold?: 
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#f5f7fb" },
-  center: { flex: 1, backgroundColor: "#f5f7fb", justifyContent: "center", alignItems: "center" },
   inner: { padding: 16, gap: 14 },
   map: {
     backgroundColor: "#eef2f9",

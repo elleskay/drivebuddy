@@ -51,7 +51,9 @@ export default function DashboardScreen() {
   }, []);
 
   useEffect(() => {
-    load().finally(() => setLoading(false));
+    load()
+      .finally(() => setLoading(false))
+      .catch(() => undefined);
   }, [load]);
 
   // Auto-refresh at the chosen cadence (silent; pull-to-refresh still available).
@@ -65,7 +67,9 @@ export default function DashboardScreen() {
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);
-    load().finally(() => setRefreshing(false));
+    load()
+      .finally(() => setRefreshing(false))
+      .catch(() => undefined);
   }, [load]);
 
   if (loading) {
@@ -80,11 +84,16 @@ export default function DashboardScreen() {
     <SafeAreaView style={styles.container} edges={["bottom"]}>
       <ScrollView
         contentContainerStyle={styles.inner}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#2563eb" />}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#2563eb" />
+        }
       >
         <View style={styles.refreshBar}>
           <Text style={styles.refreshLabel}>
-            Auto-refresh{lastUpdated ? ` · updated ${lastUpdated.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" })}` : ""}
+            Auto-refresh
+            {lastUpdated
+              ? ` · updated ${lastUpdated.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" })}`
+              : ""}
           </Text>
           <View style={styles.chips}>
             {REFRESH_OPTIONS.map((o) => (
@@ -93,42 +102,68 @@ export default function DashboardScreen() {
                 onPress={() => setIntervalMs(o.ms)}
                 style={[styles.chip, intervalMs === o.ms && styles.chipActive]}
               >
-                <Text style={[styles.chipText, intervalMs === o.ms && styles.chipTextActive]}>{o.label}</Text>
+                <Text style={[styles.chipText, intervalMs === o.ms && styles.chipTextActive]}>
+                  {o.label}
+                </Text>
               </Pressable>
             ))}
           </View>
         </View>
 
-        <Card title="Weather" subtitle="Next 2 hours · data.gov.sg" icon="partly-sunny-outline" tint={accent.weather}>
-          {data?.weather.data.slice(0, 6).map((w) => (
-            <Row key={w.area} left={w.area} right={w.forecast} />
-          )) ?? null}
+        <Card
+          title="Weather"
+          subtitle="Next 2 hours · data.gov.sg"
+          icon="partly-sunny-outline"
+          tint={accent.weather}
+        >
+          {data?.weather.data
+            .slice(0, 6)
+            .map((w) => <Row key={w.area} left={w.area} right={w.forecast} />) ?? null}
           {!data?.weather.data.length ? <Muted>No data</Muted> : null}
         </Card>
 
-        <Card title="Petrol (95)" subtitle="Indicative prices" icon="water-outline" tint={accent.fuel}>
+        <Card
+          title="Petrol (95)"
+          subtitle="Indicative prices"
+          icon="water-outline"
+          tint={accent.fuel}
+        >
           {data?.petrol.data.map((p) => (
             <Row key={p.brand} left={`${p.brand} ${p.product}`} right={`$${p.price.toFixed(2)}`} />
           ))}
         </Card>
 
-        <Card title="Traffic incidents" subtitle="LTA DataMall" icon="warning-outline" tint={accent.traffic}>
+        <Card
+          title="Traffic incidents"
+          subtitle="LTA DataMall"
+          icon="warning-outline"
+          tint={accent.traffic}
+        >
           {data?.traffic.keyRequired ? (
             <Muted>Add an LTA DataMall key to enable live traffic.</Muted>
           ) : data?.traffic.data.length ? (
-            data.traffic.data.slice(0, 6).map((t, i) => <Row key={i} left={t.type} right={t.message} />)
+            data.traffic.data
+              .slice(0, 6)
+              .map((t, i) => <Row key={i} left={t.type} right={t.message} />)
           ) : (
             <Muted>No current incidents.</Muted>
           )}
         </Card>
 
-        <Card title="Carpark availability" subtitle="LTA DataMall" icon="business-outline" tint={accent.carpark}>
+        <Card
+          title="Carpark availability"
+          subtitle="LTA DataMall"
+          icon="business-outline"
+          tint={accent.carpark}
+        >
           {data?.carpark.keyRequired ? (
             <Muted>Add an LTA DataMall key to enable carpark data.</Muted>
           ) : data?.carpark.data.length ? (
-            data.carpark.data.slice(0, 6).map((c) => (
-              <Row key={c.id} left={c.development || c.area} right={`${c.availableLots} lots`} />
-            ))
+            data.carpark.data
+              .slice(0, 6)
+              .map((c) => (
+                <Row key={c.id} left={c.development || c.area} right={`${c.availableLots} lots`} />
+              ))
           ) : (
             <Muted>No data.</Muted>
           )}
@@ -138,9 +173,15 @@ export default function DashboardScreen() {
           {data?.erp.keyRequired ? (
             <Muted>Add an LTA DataMall key to enable ERP rates.</Muted>
           ) : data?.erp.data.length ? (
-            data.erp.data.slice(0, 6).map((e, i) => (
-              <Row key={i} left={`${e.zone} (${e.startTime}-${e.endTime})`} right={`$${e.chargeAmount.toFixed(2)}`} />
-            ))
+            data.erp.data
+              .slice(0, 6)
+              .map((e, i) => (
+                <Row
+                  key={i}
+                  left={`${e.zone} (${e.startTime}-${e.endTime})`}
+                  right={`$${e.chargeAmount.toFixed(2)}`}
+                />
+              ))
           ) : (
             <Muted>No active charges now.</Muted>
           )}
@@ -196,7 +237,6 @@ function Muted({ children }: { children: React.ReactNode }) {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#f5f7fb" },
-  center: { flex: 1, backgroundColor: "#f5f7fb", justifyContent: "center", alignItems: "center" },
   inner: { padding: 16, gap: 12 },
   card: {
     backgroundColor: "#ffffff",
@@ -207,15 +247,32 @@ const styles = StyleSheet.create({
     ...shadow,
   },
   cardHead: { flexDirection: "row", alignItems: "center", gap: spacing.md, marginBottom: 10 },
-  cardIcon: { width: 40, height: 40, borderRadius: radius.md, alignItems: "center", justifyContent: "center" },
+  cardIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: radius.md,
+    alignItems: "center",
+    justifyContent: "center",
+  },
   cardTitle: { color: "#0f172a", fontSize: 17, fontWeight: "800" },
   cardSub: { color: "#94a3b8", fontSize: 12, marginTop: 1 },
   cardBody: { gap: 6 },
   rowItem: { flexDirection: "row", justifyContent: "space-between", gap: 12 },
   rowLeft: { color: "#5b6b86", fontSize: 14, flexShrink: 1 },
-  rowRight: { color: "#0f172a", fontSize: 14, fontWeight: "600", textAlign: "right", flexShrink: 1 },
+  rowRight: {
+    color: "#0f172a",
+    fontSize: 14,
+    fontWeight: "600",
+    textAlign: "right",
+    flexShrink: 1,
+  },
   muted: { color: "#94a3b8", fontSize: 13, fontStyle: "italic" },
-  refreshBar: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8 },
+  refreshBar: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 8,
+  },
   refreshLabel: { color: "#94a3b8", fontSize: 12, flexShrink: 1 },
   chips: { flexDirection: "row", gap: 6 },
   chip: {

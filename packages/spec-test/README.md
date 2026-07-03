@@ -24,13 +24,12 @@ name: "[EX-CHECK-001] check shows a verdict"
 
 Register the recorder once per runner:
 
-| Runner | Import | Setup |
-|---|---|---|
-| Vitest (API) | `@platform/spec-test/vitest` | `setupFiles` -> `setupSpecCoverage()` |
-| jest-expo (app) | `@platform/spec-test/jest` | `setupFilesAfterEnv` -> `setupSpecCoverage({ category })` |
-| Detox (legacy) | `@platform/spec-test/detox` | `setupFilesAfterEnv` -> `setupSpecCoverage()` |
-| Maestro (app e2e) | `@platform/spec-test/maestro` | `spec-maestro --report maestro.xml` after the run |
-| Playwright (web admin) | `@platform/spec-test/playwright` | `test`/`expect` re-exports |
+| Runner                 | Import                           | Setup                                                     |
+| ---------------------- | -------------------------------- | --------------------------------------------------------- |
+| Vitest (API)           | `@platform/spec-test/vitest`     | `setupFiles` -> `setupSpecCoverage()`                     |
+| jest-expo (app)        | `@platform/spec-test/jest`       | `setupFilesAfterEnv` -> `setupSpecCoverage({ category })` |
+| Maestro (app e2e)      | `@platform/spec-test/maestro`    | `spec-maestro --report maestro.xml` after the run         |
+| Playwright (web admin) | `@platform/spec-test/playwright` | `test`/`expect` re-exports                                |
 
 ## CLIs
 
@@ -61,14 +60,13 @@ signed artifact). It does not verify the spec is correct or complete:
    a spec." Review discipline catches it.
 3. **Decomposed-journey gap.** A feature split across multiple IDs can hit 100%
    coverage while the chain between them is broken. On mobile this is sharpest at
-   the native seam: the JS flow, the API, and the classifier can each be green
-   while the OS-level SMS-filter extension was never enabled, so nothing is
-   intercepted in the field. Mitigation: one journey-level Maestro e2e per
-   user-facing feature, plus real-device verification of native behavior (the
-   `native` artifact layer). See `docs/TESTING.md` and `docs/adr/0001-testing-architecture.md`.
+   the native seam: every JS layer can be green while the OS-level behaviour
+   (background location capture, push delivery) never actually runs in the
+   field. Mitigation: one journey-level Maestro e2e per user-facing feature,
+   plus real-device verification of native behavior (the `native` artifact
+   layer). See `docs/TESTING.md` and `docs/adr/0001-testing-architecture.md`.
 
 ## Why this package is private
 
-The platform copies, it does not import a published version. Each app pins its own
-snapshot from `packages/` so breaking changes never propagate without explicit
-action. See the platform `README.md` "Opinions".
+It is consumed only inside this repo (the API's Vitest setup imports it, and CI
+runs its CLI self-tests); it is not published to a registry.

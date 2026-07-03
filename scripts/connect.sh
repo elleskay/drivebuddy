@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# connect.sh: one-command cloud setup for a repo cloned from this template.
+# connect.sh: one-command cloud setup for this repo.
 #
 # Wires the GitHub + AWS connection the API deploy workflow needs, and sets the
 # EAS token the mobile build workflow needs, so that pushes deploy the NestJS
@@ -29,13 +29,9 @@
 #   --repo <owner/name>      GitHub repo (default: detected from gh/git remote)
 #   --region <aws-region>    AWS region (default: $AWS_REGION or ap-southeast-1)
 #   --database-url <url>     Use this Postgres URL instead of provisioning Neon
-#   --jwt-issuer <value>     JWT issuer the API stamps (default: the repo name)
 #   --expo-token <token>     EAS access token for CI builds (else prompted)
-#   --classifier-api-key <k> Optional LLM classifier API key
-#   --classifier-api-url <u> Optional LLM classifier API URL
-#   --cdk-dir <path>         CDK package dir (default: infra/cdk/_template)
+#   --cdk-dir <path>         CDK package dir (default: infra/cdk/drivebuddy)
 #   --api-dir <path>         NestJS service dir (default: services/api)
-#   --enable-opensearch      Set ENABLE_OPENSEARCH=true (default false)
 #   --skip-db                Don't touch the database (set DATABASE_URL yourself)
 #   --skip-eas               Don't touch the EAS token
 #   --yes                    Don't prompt for confirmation
@@ -45,9 +41,9 @@
 set -euo pipefail
 
 # ---------- args ----------
-REPO=""; REGION="${AWS_REGION:-ap-southeast-1}"; DATABASE_URL=""; JWT_ISSUER=""
-EXPO_TOKEN=""; CLASSIFIER_API_KEY=""; CLASSIFIER_API_URL=""
-CDK_DIR="infra/cdk/_template"; API_DIR="services/api"; ENABLE_OPENSEARCH="false"
+REPO=""; REGION="${AWS_REGION:-ap-southeast-1}"; DATABASE_URL=""
+EXPO_TOKEN=""
+CDK_DIR="infra/cdk/drivebuddy"; API_DIR="services/api"
 SKIP_DB=0; SKIP_EAS=0; ASSUME_YES=0; DRY_RUN=0
 
 while [ $# -gt 0 ]; do
@@ -55,18 +51,14 @@ while [ $# -gt 0 ]; do
     --repo) REPO="$2"; shift 2;;
     --region) REGION="$2"; shift 2;;
     --database-url) DATABASE_URL="$2"; shift 2;;
-    --jwt-issuer) JWT_ISSUER="$2"; shift 2;;
     --expo-token) EXPO_TOKEN="$2"; shift 2;;
-    --classifier-api-key) CLASSIFIER_API_KEY="$2"; shift 2;;
-    --classifier-api-url) CLASSIFIER_API_URL="$2"; shift 2;;
     --cdk-dir) CDK_DIR="$2"; shift 2;;
     --api-dir) API_DIR="$2"; shift 2;;
-    --enable-opensearch) ENABLE_OPENSEARCH="true"; shift;;
     --skip-db) SKIP_DB=1; shift;;
     --skip-eas) SKIP_EAS=1; shift;;
     --yes) ASSUME_YES=1; shift;;
     --dry-run) DRY_RUN=1; shift;;
-    -h|--help) sed -n '2,40p' "$0" | sed 's/^# \{0,1\}//'; exit 0;;
+    -h|--help) sed -n '2,37p' "$0" | sed 's/^# \{0,1\}//'; exit 0;;
     *) echo "Unknown option: $1" >&2; exit 2;;
   esac
 done
@@ -101,7 +93,6 @@ echo "$REPO" | grep -qE '^[^/]+/[^/]+$' || die "--repo must be '<owner>/<name>',
 
 ACCOUNT="$(aws sts get-caller-identity --query Account --output text)"
 REPO_NAME="${REPO#*/}"
-[ -n "$JWT_ISSUER" ] || JWT_ISSUER="$REPO_NAME"
 
 echo
 step "Plan"
@@ -112,8 +103,6 @@ cat <<EOF
   api dir:     $API_DIR
   cdk dir:     $CDK_DIR
   database:    $([ -n "$DATABASE_URL" ] && echo "provided" || { [ "$SKIP_DB" = 1 ] && echo "skipped" || echo "provision via Neon (or prompt)"; })
-  jwt issuer:  $JWT_ISSUER
-  opensearch:  $ENABLE_OPENSEARCH
   eas:         $([ "$SKIP_EAS" = 1 ] && echo "skipped" || echo "set EXPO_TOKEN + print link steps")
 
 This will create an IAM role + OIDC provider in AWS account $ACCOUNT and set
@@ -210,13 +199,9 @@ gh_secret AWS_DEPLOY_ROLE_ARN "$ROLE_ARN"
 gh_secret JWT_SECRET "$JWT_SECRET"
 [ -n "$DATABASE_URL" ] && gh_secret DATABASE_URL "$DATABASE_URL"
 [ -n "$EXPO_TOKEN" ] && gh_secret EXPO_TOKEN "$EXPO_TOKEN"
-[ -n "$CLASSIFIER_API_KEY" ] && gh_secret CLASSIFIER_API_KEY "$CLASSIFIER_API_KEY"
 
 gh_var AWS_REGION "$REGION"
-gh_var JWT_ISSUER "$JWT_ISSUER"
-gh_var ENABLE_OPENSEARCH "$ENABLE_OPENSEARCH"
-[ -n "$CLASSIFIER_API_URL" ] && gh_var CLASSIFIER_API_URL "$CLASSIFIER_API_URL"
-[ "$CDK_DIR" != "infra/cdk/_template" ] && gh_var CDK_DIR "$CDK_DIR"
+[ "$CDK_DIR" != "infra/cdk/drivebuddy" ] && gh_var CDK_DIR "$CDK_DIR"
 [ "$API_DIR" != "services/api" ] && gh_var API_DIR "$API_DIR"
 
 # ---------- done ----------
@@ -225,13 +210,13 @@ ok "Cloud connected."
 cat <<EOF
 
 Next:
-  1. Build the API at ${API_DIR} and the app at apps/app (or prompt your agent),
-     then push. GitHub Actions deploys the API to a live AWS URL.
+  1. Push to main. GitHub Actions builds the API at ${API_DIR} and deploys it
+     to a live AWS URL (plus the web demo to GitHub Pages).
   2. Mobile (EAS) needs a one-time interactive link, then CI can build:
        npm i -g eas-cli && eas login
-       cd apps/app && eas init           # links the project, writes the id
+       cd apps/drivebuddy && eas init    # links the project, writes the id
        # iOS/Android store credentials: eas credentials (interactive)
-     eas.json (build + submit profiles) already ships in apps/_template.
+     eas.json (build + submit profiles) already ships in apps/drivebuddy.
 $([ -z "$EXPO_TOKEN" ] && echo "  3. To run EAS builds from CI, add an EXPO_TOKEN secret later:
        gh secret set EXPO_TOKEN --repo $REPO --body <token-from-expo.dev>")
 EOF

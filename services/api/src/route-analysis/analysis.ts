@@ -1,4 +1,5 @@
 import type { PrismaClient, TripSummary } from "@prisma/client";
+import { haversineKm } from "../common/geo";
 import { fetchRoute } from "../external/osrm";
 
 export interface Insights {
@@ -36,16 +37,6 @@ const CHECKPOINTS = [
   { name: "Tuas", lat: 1.3482, lng: 103.6361 },
 ];
 const CHECKPOINT_RADIUS_KM = 3;
-
-function haversineKm(aLat: number, aLng: number, bLat: number, bLng: number): number {
-  const R = 6371;
-  const dLat = ((bLat - aLat) * Math.PI) / 180;
-  const dLng = ((bLng - aLng) * Math.PI) / 180;
-  const s =
-    Math.sin(dLat / 2) ** 2 +
-    Math.cos((aLat * Math.PI) / 180) * Math.cos((bLat * Math.PI) / 180) * Math.sin(dLng / 2) ** 2;
-  return 2 * R * Math.asin(Math.sqrt(s));
-}
 
 function cost(t: TripSummary): number {
   return Number(t.fuelCost) + Number(t.erpCost) + Number(t.parkingCost);
@@ -117,14 +108,19 @@ export function computeInsights(trips: TripSummary[]): Insights {
     }
     // Causeway/Second Link detection: trip start OR end near a checkpoint.
     for (const cp of CHECKPOINTS) {
-      const nearEnd = t.endLat != null && t.endLng != null && haversineKm(cp.lat, cp.lng, t.endLat, t.endLng) <= CHECKPOINT_RADIUS_KM;
-      const nearStart = t.startLat != null && t.startLng != null && haversineKm(cp.lat, cp.lng, t.startLat, t.startLng) <= CHECKPOINT_RADIUS_KM;
+      const nearEnd =
+        t.endLat != null &&
+        t.endLng != null &&
+        haversineKm(cp.lat, cp.lng, t.endLat, t.endLng) <= CHECKPOINT_RADIUS_KM;
+      const nearStart =
+        t.startLat != null &&
+        t.startLng != null &&
+        haversineKm(cp.lat, cp.lng, t.startLat, t.startLng) <= CHECKPOINT_RADIUS_KM;
       if (nearEnd || nearStart) checkpointHits.set(cp.name, (checkpointHits.get(cp.name) ?? 0) + 1);
     }
   }
 
-  const crossesCauseway =
-    [...checkpointHits.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? null;
+  const crossesCauseway = [...checkpointHits.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? null;
 
   const peakHour = totalTrips ? hourCounts.indexOf(Math.max(...hourCounts)) : null;
   // Split the day so commuters get a morning-out and an evening-home peak.
@@ -149,7 +145,12 @@ export function computeInsights(trips: TripSummary[]): Insights {
   const topDestinations = [...destBuckets.values()]
     .sort((a, b) => b.count - a.count)
     .slice(0, 3)
-    .map((d) => ({ label: `${d.lat.toFixed(3)}, ${d.lng.toFixed(3)}`, lat: d.lat, lng: d.lng, count: d.count }));
+    .map((d) => ({
+      label: `${d.lat.toFixed(3)}, ${d.lng.toFixed(3)}`,
+      lat: d.lat,
+      lng: d.lng,
+      count: d.count,
+    }));
 
   return {
     totalTrips,
@@ -303,7 +304,13 @@ export async function generateForUser(prisma: PrismaClient, userId: string) {
   await prisma.recommendation.deleteMany({ where: { userId, dismissed: false } });
   if (fresh.length) {
     await prisma.recommendation.createMany({
-      data: fresh.map((d) => ({ userId, category: d.category, title: d.title, body: d.body, score: d.score })),
+      data: fresh.map((d) => ({
+        userId,
+        category: d.category,
+        title: d.title,
+        body: d.body,
+        score: d.score,
+      })),
     });
   }
   return fresh;

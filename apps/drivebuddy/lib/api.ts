@@ -48,11 +48,12 @@ export class ApiError extends Error {
 
 async function parse(res: Response): Promise<unknown> {
   const text = await res.text();
-  const body = text ? JSON.parse(text) : null;
+  const body: unknown = text ? JSON.parse(text) : null;
   if (!res.ok) {
-    const msg =
-      (body && typeof body === "object" && "message" in body && String((body as { message: unknown }).message)) ||
-      `Request failed (${res.status})`;
+    let msg = `Request failed (${res.status})`;
+    if (body && typeof body === "object" && "message" in body) {
+      msg = String(body.message) || msg;
+    }
     throw new ApiError(res.status, msg);
   }
   return body;
@@ -125,10 +126,11 @@ export const api = {
   updateVehicle: (
     id: string,
     patch: Partial<{ vehicleNumber: string; fuelType: FuelType; fuelConsumption: number }>,
-  ) => authed(`/vehicles/${id}`, { method: "PATCH", body: JSON.stringify(patch) }) as Promise<Vehicle>,
+  ) =>
+    authed(`/vehicles/${id}`, { method: "PATCH", body: JSON.stringify(patch) }) as Promise<Vehicle>,
   setMainVehicle: (id: string) =>
     authed(`/vehicles/${id}/set-main`, { method: "POST" }) as Promise<Vehicle>,
-  removeVehicle: (id: string) => authed(`/vehicles/${id}`, { method: "DELETE" }) as Promise<unknown>,
+  removeVehicle: (id: string) => authed(`/vehicles/${id}`, { method: "DELETE" }),
 
   // Public Singapore live-data feeds (no auth needed).
   weather: () => authed("/external/dashboard/weather") as Promise<Feed<WeatherItem[]>>,
@@ -140,7 +142,10 @@ export const api = {
 
   // Trips / GPS tracking
   startRoute: (name?: string) =>
-    authed("/drive-monitor/routes", { method: "POST", body: JSON.stringify({ name }) }) as Promise<DrivingRoute>,
+    authed("/drive-monitor/routes", {
+      method: "POST",
+      body: JSON.stringify({ name }),
+    }) as Promise<DrivingRoute>,
   addPoints: (routeId: string, points: GpsSample[]) =>
     authed(`/drive-monitor/routes/${routeId}/points`, {
       method: "POST",
@@ -170,9 +175,15 @@ export const api = {
 
   // Notifications + push
   registerDevice: (token: string, platform?: "ios" | "android") =>
-    authed("/notifications/devices", { method: "POST", body: JSON.stringify({ token, platform }) }) as Promise<{ ok: boolean }>,
+    authed("/notifications/devices", {
+      method: "POST",
+      body: JSON.stringify({ token, platform }),
+    }) as Promise<{ ok: boolean }>,
   unregisterDevice: (token: string) =>
-    authed("/notifications/devices", { method: "DELETE", body: JSON.stringify({ token }) }) as Promise<{ ok: boolean }>,
+    authed("/notifications/devices", {
+      method: "DELETE",
+      body: JSON.stringify({ token }),
+    }) as Promise<{ ok: boolean }>,
   listNotifications: () => authed("/notifications") as Promise<AppNotification[]>,
   unreadCount: () => authed("/notifications/unread-count") as Promise<{ count: number }>,
   markNotificationRead: (id: string) =>
@@ -181,23 +192,39 @@ export const api = {
     authed("/notifications/read-all", { method: "POST" }) as Promise<{ updated: number }>,
   getNotificationSettings: () => authed("/notifications/settings") as Promise<NotificationSettings>,
   updateNotificationSettings: (patch: Partial<NotificationSettings>) =>
-    authed("/notifications/settings", { method: "PATCH", body: JSON.stringify(patch) }) as Promise<NotificationSettings>,
+    authed("/notifications/settings", {
+      method: "PATCH",
+      body: JSON.stringify(patch),
+    }) as Promise<NotificationSettings>,
   sendTestNotification: () =>
-    authed("/notifications/test", { method: "POST", body: JSON.stringify({}) }) as Promise<AppNotification | null>,
+    authed("/notifications/test", {
+      method: "POST",
+      body: JSON.stringify({}),
+    }) as Promise<AppNotification | null>,
 
   // AI assistant
   aiAsk: (text: string, speak = false) =>
-    authed("/ai/ask", { method: "POST", body: JSON.stringify({ text, speak }) }) as Promise<AiAnswer>,
+    authed("/ai/ask", {
+      method: "POST",
+      body: JSON.stringify({ text, speak }),
+    }) as Promise<AiAnswer>,
   aiVoice: (audioBase64: string, format = "m4a", speak = true) =>
-    authed("/ai/voice", { method: "POST", body: JSON.stringify({ audioBase64, format, speak }) }) as Promise<AiVoiceAnswer>,
+    authed("/ai/voice", {
+      method: "POST",
+      body: JSON.stringify({ audioBase64, format, speak }),
+    }) as Promise<AiVoiceAnswer>,
 
   // Route analysis + recommendations
   insights: () => authed("/route-analysis/insights") as Promise<Insights>,
   listRecommendations: () => authed("/route-analysis/recommendations") as Promise<Recommendation[]>,
   refreshRecommendations: () =>
-    authed("/route-analysis/recommendations/refresh", { method: "POST" }) as Promise<Recommendation[]>,
+    authed("/route-analysis/recommendations/refresh", { method: "POST" }) as Promise<
+      Recommendation[]
+    >,
   dismissRecommendation: (id: string) =>
-    authed(`/route-analysis/recommendations/${id}/dismiss`, { method: "POST" }) as Promise<{ ok: boolean }>,
+    authed(`/route-analysis/recommendations/${id}/dismiss`, { method: "POST" }) as Promise<{
+      ok: boolean;
+    }>,
 };
 
 export interface Insights {

@@ -29,7 +29,11 @@ const nextId = () => `m${seq++}`;
 
 export default function AssistantScreen() {
   const [messages, setMessages] = useState<Msg[]>([
-    { id: nextId(), role: "assistant", text: "Hi! I'm DriveBuddy. Ask me about ERP, traffic, parking, fuel, or anything driving in Singapore." },
+    {
+      id: nextId(),
+      role: "assistant",
+      text: "Hi! I'm DriveBuddy. Ask me about ERP, traffic, parking, fuel, or anything driving in Singapore.",
+    },
   ]);
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
@@ -59,11 +63,17 @@ export default function AssistantScreen() {
   const playAudio = useCallback(async (base64: string, onDone?: () => void) => {
     try {
       const uri = `${FileSystem.cacheDirectory}reply-${Date.now()}.mp3`;
-      await FileSystem.writeAsStringAsync(uri, base64, { encoding: FileSystem.EncodingType.Base64 });
-      await sound.current?.unloadAsync();
-      const { sound: s } = await Audio.Sound.createAsync({ uri }, { shouldPlay: true }, (status) => {
-        if (status.isLoaded && status.didJustFinish) onDone?.();
+      await FileSystem.writeAsStringAsync(uri, base64, {
+        encoding: FileSystem.EncodingType.Base64,
       });
+      await sound.current?.unloadAsync();
+      const { sound: s } = await Audio.Sound.createAsync(
+        { uri },
+        { shouldPlay: true },
+        (status) => {
+          if (status.isLoaded && status.didJustFinish) onDone?.();
+        },
+      );
       sound.current = s;
     } catch {
       // playback is optional; the text answer already shows
@@ -104,7 +114,11 @@ export default function AssistantScreen() {
     try {
       const perm = await Audio.requestPermissionsAsync();
       if (!perm.granted) {
-        append({ id: nextId(), role: "assistant", text: "Microphone permission is needed for voice." });
+        append({
+          id: nextId(),
+          role: "assistant",
+          text: "Microphone permission is needed for voice.",
+        });
         return;
       }
       await Audio.setAudioModeAsync({ allowsRecordingIOS: true, playsInSilentModeIOS: true });
@@ -137,11 +151,17 @@ export default function AssistantScreen() {
       const uri = r.getURI();
       rec.current = null;
       if (!uri) throw new Error("no audio");
-      const base64 = await FileSystem.readAsStringAsync(uri, { encoding: FileSystem.EncodingType.Base64 });
+      const base64 = await FileSystem.readAsStringAsync(uri, {
+        encoding: FileSystem.EncodingType.Base64,
+      });
       append({ id: nextId(), role: "user", text: "(voice message)" });
       const res = await api.aiVoice(base64, "m4a", true);
       setMessages((prev) =>
-        prev.map((m) => (m.text === "(voice message)" && m.role === "user" ? { ...m, text: res.transcript || "(voice message)" } : m)),
+        prev.map((m) =>
+          m.text === "(voice message)" && m.role === "user"
+            ? { ...m, text: res.transcript || "(voice message)" }
+            : m,
+        ),
       );
       append({ id: nextId(), role: "assistant", text: res.answer });
       if (res.audio) void playAudio(res.audio.base64, maybeContinue);
@@ -157,8 +177,8 @@ export default function AssistantScreen() {
 
   // Keep refs to the latest start/stop so the hands-free loop can call across them.
   useEffect(() => {
-    startRef.current = startRecording;
-    stopRef.current = stopRecording;
+    startRef.current = () => void startRecording();
+    stopRef.current = () => void stopRecording();
   }, [startRecording, stopRecording]);
 
   useEffect(() => {
@@ -195,7 +215,9 @@ export default function AssistantScreen() {
           contentContainerStyle={styles.list}
           renderItem={({ item }) => (
             <View style={[styles.bubble, item.role === "user" ? styles.user : styles.assistant]}>
-              <Text style={item.role === "user" ? styles.userText : styles.assistantText}>{item.text}</Text>
+              <Text style={item.role === "user" ? styles.userText : styles.assistantText}>
+                {item.text}
+              </Text>
             </View>
           )}
         />
@@ -221,10 +243,14 @@ export default function AssistantScreen() {
         <View style={styles.inputBar}>
           <Pressable
             style={[styles.mic, recording && styles.micActive]}
-            onPress={recording ? stopRecording : startRecording}
+            onPress={() => void (recording ? stopRecording() : startRecording())}
             disabled={busy && !recording}
           >
-            <Ionicons name={recording ? "stop" : "mic"} size={20} color={recording ? "#fff" : colors.primary} />
+            <Ionicons
+              name={recording ? "stop" : "mic"}
+              size={20}
+              color={recording ? "#fff" : colors.primary}
+            />
           </Pressable>
           <TextInput
             style={styles.input}
@@ -233,12 +259,12 @@ export default function AssistantScreen() {
             placeholder={recording ? "Listening…" : "Ask DriveBuddy…"}
             placeholderTextColor="#94a3b8"
             editable={!recording}
-            onSubmitEditing={() => send(input)}
+            onSubmitEditing={() => void send(input)}
             returnKeyType="send"
           />
-          <Pressable onPress={() => send(input)} disabled={busy || !input.trim()}>
+          <Pressable onPress={() => void send(input)} disabled={busy || !input.trim()}>
             <LinearGradient
-              colors={gradients.primary as unknown as string[]}
+              colors={gradients.primary}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 1 }}
               style={[styles.sendBtn, (busy || !input.trim()) && { opacity: 0.5 }]}
@@ -257,10 +283,21 @@ const styles = StyleSheet.create({
   list: { padding: 16, gap: 10 },
   bubble: { maxWidth: "85%", borderRadius: 16, paddingVertical: 10, paddingHorizontal: 14 },
   user: { alignSelf: "flex-end", backgroundColor: "#2563eb" },
-  assistant: { alignSelf: "flex-start", backgroundColor: "#ffffff", borderColor: "#e4e9f2", borderWidth: 1 },
+  assistant: {
+    alignSelf: "flex-start",
+    backgroundColor: "#ffffff",
+    borderColor: "#e4e9f2",
+    borderWidth: 1,
+  },
   userText: { color: "#fff", fontSize: 15 },
   assistantText: { color: "#0f172a", fontSize: 15 },
-  thinking: { flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: 18, paddingBottom: 6 },
+  thinking: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    paddingHorizontal: 18,
+    paddingBottom: 6,
+  },
   thinkingText: { color: "#5b6b86", fontSize: 13 },
   handsFree: {
     flexDirection: "row",
@@ -309,5 +346,11 @@ const styles = StyleSheet.create({
     color: "#0f172a",
     fontSize: 15,
   },
-  sendBtn: { width: 44, height: 44, borderRadius: 22, alignItems: "center", justifyContent: "center" },
+  sendBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: "center",
+    justifyContent: "center",
+  },
 });

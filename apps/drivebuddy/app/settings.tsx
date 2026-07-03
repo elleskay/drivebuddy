@@ -20,7 +20,7 @@ export default function SettingsScreen() {
       <ScrollView contentContainerStyle={styles.inner}>
         <View style={styles.profileCard}>
           <LinearGradient
-            colors={gradients.primary as unknown as string[]}
+            colors={gradients.primary}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
             style={styles.avatar}
@@ -35,15 +35,42 @@ export default function SettingsScreen() {
 
         <Text style={styles.section}>Account</Text>
         <View style={styles.group}>
-          <Row label="Edit profile" icon="person-outline" tint={accent.weather} onPress={() => router.push("/profile")} />
-          <Row label="My vehicles" icon="car-outline" tint={accent.fuel} onPress={() => router.push("/vehicles")} />
-          <Row label="Notification settings" icon="notifications-outline" tint={accent.traffic} onPress={() => router.push("/notification-settings")} last />
+          <Row
+            label="Edit profile"
+            icon="person-outline"
+            tint={accent.weather}
+            onPress={() => router.push("/profile")}
+          />
+          <Row
+            label="My vehicles"
+            icon="car-outline"
+            tint={accent.fuel}
+            onPress={() => router.push("/vehicles")}
+          />
+          <Row
+            label="Notification settings"
+            icon="notifications-outline"
+            tint={accent.traffic}
+            onPress={() => router.push("/notification-settings")}
+            last
+          />
         </View>
 
         <Text style={styles.section}>Activity</Text>
         <View style={styles.group}>
-          <Row label="Trip history" icon="time-outline" tint={accent.routine} onPress={() => router.push("/history")} />
-          <Row label="Recommendations" icon="bulb-outline" tint={accent.carpark} onPress={() => router.push("/recommendations")} last />
+          <Row
+            label="Trip history"
+            icon="time-outline"
+            tint={accent.routine}
+            onPress={() => router.push("/history")}
+          />
+          <Row
+            label="Recommendations"
+            icon="bulb-outline"
+            tint={accent.carpark}
+            onPress={() => router.push("/recommendations")}
+            last
+          />
         </View>
 
         <Text style={styles.section}>About</Text>
@@ -53,7 +80,7 @@ export default function SettingsScreen() {
           <InfoRow label="API" value={apiUrl.replace(/^https?:\/\//, "")} last />
         </View>
 
-        <Pressable style={styles.signOut} onPress={signOut}>
+        <Pressable style={styles.signOut} onPress={() => void signOut()}>
           <Text style={styles.signOutText}>Sign out</Text>
         </Pressable>
       </ScrollView>
@@ -110,15 +137,34 @@ const styles = StyleSheet.create({
     padding: 16,
     ...shadow,
   },
-  avatar: { width: 52, height: 52, borderRadius: 26, alignItems: "center", justifyContent: "center" },
+  avatar: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    alignItems: "center",
+    justifyContent: "center",
+  },
   avatarText: { color: "#fff", fontSize: 22, fontWeight: "800" },
   name: { color: "#0f172a", fontSize: 17, fontWeight: "700" },
   email: { color: "#5b6b86", fontSize: 13, marginTop: 2 },
   section: { color: "#5b6b86", fontSize: 13, fontWeight: "700", marginTop: 14, marginLeft: 4 },
-  group: { backgroundColor: "#ffffff", borderColor: "#e4e9f2", borderWidth: 1, borderRadius: 14, paddingHorizontal: 16, ...shadow },
+  group: {
+    backgroundColor: "#ffffff",
+    borderColor: "#e4e9f2",
+    borderWidth: 1,
+    borderRadius: 14,
+    paddingHorizontal: 16,
+    ...shadow,
+  },
   row: { flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 13 },
   rowBorder: { borderBottomColor: "#e4e9f2", borderBottomWidth: 1 },
-  rowIconWrap: { width: 34, height: 34, borderRadius: radius.sm, alignItems: "center", justifyContent: "center" },
+  rowIconWrap: {
+    width: 34,
+    height: 34,
+    borderRadius: radius.sm,
+    alignItems: "center",
+    justifyContent: "center",
+  },
   rowLabel: { color: "#0f172a", fontSize: 15, flex: 1 },
   infoValue: { color: "#5b6b86", fontSize: 13, maxWidth: "60%" },
   signOut: { alignItems: "center", paddingVertical: 16, marginTop: 10 },

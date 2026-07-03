@@ -102,16 +102,18 @@ export default function VehiclesScreen() {
   }
 
   function onDelete(v: Vehicle) {
+    const doDelete = async () => {
+      try {
+        await api.removeVehicle(v.id);
+      } catch (e) {
+        Alert.alert("Delete failed", e instanceof Error ? e.message : "Please try again.");
+      } finally {
+        await load();
+      }
+    };
     Alert.alert("Delete vehicle", `Remove ${v.vehicleNumber}?`, [
       { text: "Cancel", style: "cancel" },
-      {
-        text: "Delete",
-        style: "destructive",
-        onPress: async () => {
-          await api.removeVehicle(v.id);
-          await load();
-        },
-      },
+      { text: "Delete", style: "destructive", onPress: () => void doDelete() },
     ]);
   }
 
@@ -129,11 +131,17 @@ export default function VehiclesScreen() {
         data={vehicles}
         keyExtractor={(v) => v.id}
         contentContainerStyle={styles.list}
-        ListEmptyComponent={<Text style={styles.empty}>No vehicles yet. Add your first one below.</Text>}
+        ListEmptyComponent={
+          <Text style={styles.empty}>No vehicles yet. Add your first one below.</Text>
+        }
         renderItem={({ item }) => (
           <View style={styles.vehicle}>
             <View style={[styles.vIcon, { backgroundColor: FUEL_TINT[item.fuelType] + "1a" }]}>
-              <Ionicons name={FUEL_ICON[item.fuelType]} size={22} color={FUEL_TINT[item.fuelType]} />
+              <Ionicons
+                name={FUEL_ICON[item.fuelType]}
+                size={22}
+                color={FUEL_TINT[item.fuelType]}
+              />
             </View>
             <View style={{ flex: 1 }}>
               <View style={styles.row}>
@@ -141,11 +149,12 @@ export default function VehiclesScreen() {
                 {item.isMain ? <Text style={styles.mainBadge}>MAIN</Text> : null}
               </View>
               <Text style={styles.meta}>
-                {item.fuelType} · {item.fuelConsumption} {item.fuelType === "Electric" ? "kWh" : "L"}/100km
+                {item.fuelType} · {item.fuelConsumption}{" "}
+                {item.fuelType === "Electric" ? "kWh" : "L"}/100km
               </Text>
             </View>
             {!item.isMain ? (
-              <Pressable onPress={() => onSetMain(item.id)} style={styles.smallBtn}>
+              <Pressable onPress={() => void onSetMain(item.id)} style={styles.smallBtn}>
                 <Text style={styles.smallBtnText}>Set main</Text>
               </Pressable>
             ) : null}
@@ -176,7 +185,9 @@ export default function VehiclesScreen() {
                   onPress={() => setFuelType(f)}
                   style={[styles.fuelChip, fuelType === f && styles.fuelChipActive]}
                 >
-                  <Text style={[styles.fuelChipText, fuelType === f && styles.fuelChipTextActive]}>{f}</Text>
+                  <Text style={[styles.fuelChipText, fuelType === f && styles.fuelChipTextActive]}>
+                    {f}
+                  </Text>
                 </Pressable>
               ))}
             </View>
@@ -188,7 +199,11 @@ export default function VehiclesScreen() {
               value={consumption}
               onChangeText={setConsumption}
             />
-            <Pressable style={[styles.button, adding && { opacity: 0.6 }]} onPress={onSubmit} disabled={adding}>
+            <Pressable
+              style={[styles.button, adding && { opacity: 0.6 }]}
+              onPress={() => void onSubmit()}
+              disabled={adding}
+            >
               {adding ? (
                 <ActivityIndicator color="#fff" />
               ) : (
@@ -209,7 +224,6 @@ export default function VehiclesScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#f5f7fb" },
-  center: { flex: 1, backgroundColor: "#f5f7fb", justifyContent: "center", alignItems: "center" },
   list: { padding: 16, gap: 12 },
   empty: { color: "#5b6b86", textAlign: "center", marginVertical: 16 },
   vehicle: {
@@ -223,7 +237,13 @@ const styles = StyleSheet.create({
     gap: 10,
     ...shadow,
   },
-  vIcon: { width: 44, height: 44, borderRadius: radius.md, alignItems: "center", justifyContent: "center" },
+  vIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: radius.md,
+    alignItems: "center",
+    justifyContent: "center",
+  },
   row: { flexDirection: "row", alignItems: "center", gap: 8 },
   plate: { color: "#0f172a", fontSize: 18, fontWeight: "800", letterSpacing: 1 },
   mainBadge: {
@@ -237,7 +257,12 @@ const styles = StyleSheet.create({
     overflow: "hidden",
   },
   meta: { color: "#5b6b86", fontSize: 13, marginTop: 4 },
-  smallBtn: { backgroundColor: "#e8f0ff", borderRadius: 8, paddingHorizontal: 10, paddingVertical: 8 },
+  smallBtn: {
+    backgroundColor: "#e8f0ff",
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+  },
   smallBtnText: { color: "#2563eb", fontSize: 12, fontWeight: "700" },
   deleteBtn: { padding: 6 },
   deleteText: { color: "#dc2626", fontSize: 16, fontWeight: "700" },
@@ -274,7 +299,13 @@ const styles = StyleSheet.create({
   fuelChipActive: { backgroundColor: "#2563eb", borderColor: "#2563eb" },
   fuelChipText: { color: "#5b6b86", fontWeight: "700", fontSize: 13 },
   fuelChipTextActive: { color: "#fff" },
-  button: { backgroundColor: "#2563eb", borderRadius: 12, paddingVertical: 14, alignItems: "center", marginTop: 4 },
+  button: {
+    backgroundColor: "#2563eb",
+    borderRadius: 12,
+    paddingVertical: 14,
+    alignItems: "center",
+    marginTop: 4,
+  },
   buttonText: { color: "#fff", fontSize: 16, fontWeight: "700" },
   cancelBtn: { alignItems: "center", paddingVertical: 8 },
   cancelText: { color: "#5b6b86", fontSize: 14, fontWeight: "600" },

@@ -40,9 +40,6 @@ const SYSTEM_PROMPT =
   "(refer to their usual routes, home area, vehicle and the live conditions); never read the raw data back verbatim. " +
   "If the context does not contain something the driver asks about, say so briefly rather than inventing it.";
 
-function sgtHourOf(d: Date): number {
-  return (d.getUTCHours() + 8) % 24;
-}
 function isErpPeakNow(d: Date): boolean {
   const sgtMs = d.getTime() + 8 * 3_600_000;
   const sgt = new Date(sgtMs);
@@ -79,10 +76,18 @@ export class AiService {
   }
 
   /** Transcribe an uploaded clip, answer it, and (optionally) speak the answer. */
-  async voice(userId: string, audioBase64: string, format = "m4a", speak = true): Promise<VoiceAnswer> {
+  async voice(
+    userId: string,
+    audioBase64: string,
+    format = "m4a",
+    speak = true,
+  ): Promise<VoiceAnswer> {
     const transcript = await this.transcribeAudio(audioBase64, format);
     if (!transcript) {
-      return { transcript: "", answer: "Sorry, I couldn't make out what you said. Please try again." };
+      return {
+        transcript: "",
+        answer: "Sorry, I couldn't make out what you said. Please try again.",
+      };
     }
     const context = await this.buildContext(userId);
     const answer = await this.invokeLlm(transcript, context);
@@ -171,8 +176,11 @@ export class AiService {
         if (common) live.push(`Weather: ${common} across most areas`);
       }
       const cheapest = [...petrol.data].sort((a, b) => a.price - b.price)[0];
-      if (cheapest) live.push(`Cheapest 95 petrol: ${cheapest.brand} $${cheapest.price.toFixed(2)}/L`);
-      live.push(`ERP: ${isErpPeakNow(now) ? "peak pricing active now" : "off-peak (most gantries free now)"}`);
+      if (cheapest)
+        live.push(`Cheapest 95 petrol: ${cheapest.brand} $${cheapest.price.toFixed(2)}/L`);
+      live.push(
+        `ERP: ${isErpPeakNow(now) ? "peak pricing active now" : "off-peak (most gantries free now)"}`,
+      );
       if (traffic?.data) {
         live.push(
           traffic.data.length

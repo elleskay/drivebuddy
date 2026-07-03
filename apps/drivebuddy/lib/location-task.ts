@@ -1,6 +1,6 @@
 import { Platform } from "react-native";
 import * as TaskManager from "expo-task-manager";
-import * as Location from "expo-location";
+import type * as Location from "expo-location";
 import { secureGet, secureSet, secureDelete } from "./secure-storage";
 import { api } from "./api";
 
@@ -25,27 +25,32 @@ interface LocationTaskData {
 
 // TaskManager has no web implementation; defining a task there throws at import.
 // The web demo records drives with the foreground watcher only (no OS background task).
-if (Platform.OS !== "web")
+if (Platform.OS !== "web") {
+  // The executor is typed `=> void`, but TaskManager awaits the returned promise
+  // before notifying the OS the task finished; fire-and-forget here would let the
+  // OS suspend the app mid-upload and drop the batch.
+  // eslint-disable-next-line @typescript-eslint/no-misused-promises
   TaskManager.defineTask(LOCATION_TASK, async ({ data, error }) => {
-  if (error) return;
-  const { locations } = (data ?? {}) as LocationTaskData;
-  if (!locations?.length) return;
-  const routeId = await getActiveRouteId();
-  if (!routeId) return;
-  try {
-    await api.addPoints(
-      routeId,
-      locations.map((l) => ({
-        latitude: l.coords.latitude,
-        longitude: l.coords.longitude,
-        timestamp: new Date(l.timestamp).toISOString(),
-        altitude: l.coords.altitude ?? undefined,
-        speed: l.coords.speed ?? undefined,
-        accuracy: l.coords.accuracy ?? undefined,
-      })),
-    );
-  } catch {
-    // Best-effort: a failed background flush just drops that batch; the next
-    // batch (and the foreground summary on completion) still recompute stats.
-  }
-});
+    if (error) return;
+    const { locations } = (data ?? {}) as LocationTaskData;
+    if (!locations?.length) return;
+    const routeId = await getActiveRouteId();
+    if (!routeId) return;
+    try {
+      await api.addPoints(
+        routeId,
+        locations.map((l) => ({
+          latitude: l.coords.latitude,
+          longitude: l.coords.longitude,
+          timestamp: new Date(l.timestamp).toISOString(),
+          altitude: l.coords.altitude ?? undefined,
+          speed: l.coords.speed ?? undefined,
+          accuracy: l.coords.accuracy ?? undefined,
+        })),
+      );
+    } catch {
+      // Best-effort: a failed background flush just drops that batch; the next
+      // batch (and the foreground summary on completion) still recompute stats.
+    }
+  });
+}

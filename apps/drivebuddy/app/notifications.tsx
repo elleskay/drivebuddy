@@ -42,7 +42,7 @@ export default function NotificationsScreen() {
   );
 
   const onTap = useCallback(
-    async (n: AppNotification) => {
+    (n: AppNotification) => {
       if (!n.read) {
         setItems((prev) => prev.map((x) => (x.id === n.id ? { ...x, read: true } : x)));
         void api.markNotificationRead(n.id).catch(() => undefined);
@@ -74,10 +74,10 @@ export default function NotificationsScreen() {
   return (
     <SafeAreaView style={styles.container} edges={["bottom"]}>
       <View style={styles.toolbar}>
-        <Pressable onPress={sendTest} hitSlop={8}>
+        <Pressable onPress={() => void sendTest()} hitSlop={8}>
           <Text style={styles.toolbarLink}>Send test</Text>
         </Pressable>
-        <Pressable onPress={markAll} hitSlop={8}>
+        <Pressable onPress={() => void markAll()} hitSlop={8}>
           <Text style={styles.toolbarLink}>Mark all read</Text>
         </Pressable>
       </View>
@@ -125,7 +125,6 @@ function formatTime(iso: string): string {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#f5f7fb" },
-  center: { flex: 1, backgroundColor: "#f5f7fb", justifyContent: "center", alignItems: "center" },
   toolbar: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -148,7 +147,13 @@ const styles = StyleSheet.create({
     ...shadow,
   },
   unread: { borderColor: "#2563eb", backgroundColor: "#e8f0ff" },
-  nIcon: { width: 40, height: 40, borderRadius: radius.md, alignItems: "center", justifyContent: "center" },
+  nIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: radius.md,
+    alignItems: "center",
+    justifyContent: "center",
+  },
   title: { color: "#0f172a", fontSize: 15, fontWeight: "700" },
   body: { color: "#5b6b86", fontSize: 13, marginTop: 2 },
   time: { color: "#94a3b8", fontSize: 11, marginTop: 4 },

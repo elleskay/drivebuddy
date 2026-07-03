@@ -1,14 +1,43 @@
-# _demo
+# DriveBuddy app
 
-Minimal Expo app that proves the platform patterns end to end. Platform CI typechecks it, runs `expo-doctor`, and (on a native runner) prebuilds it. Do not replace this with a real app; clone the repo and build your app at `apps/app/`.
+Expo (React Native) client for DriveBuddy: records drives with GPS in the
+foreground and background, shows a live Singapore driving dashboard, plays
+in-drive voice alerts, and talks to the AI assistant by voice or text. Also
+exports to web (react-native-web) for the GitHub Pages demo.
 
-It ships one screen, the check-and-report entry point, calling `lib/api.ts` with a local heuristic fallback so it runs without a live API. Keep it small.
+## Screens
+
+- `app/(tabs)/` - Home, Journey Mode (drive recording), Dashboard (live SG
+  data), Assistant (voice/text AI), History
+- `app/trip/[routeId].tsx` - post-drive summary: route on OpenStreetMap tiles
+  plus itemised fuel/ERP cost
+- `app/login.tsx`, `app/register.tsx` - email/password auth
+- `app/vehicles.tsx`, `app/profile.tsx`, `app/settings.tsx`,
+  `app/notifications.tsx`, `app/notification-settings.tsx`,
+  `app/recommendations.tsx`
+
+## Key modules
+
+- `lib/api.ts` - typed API client; attaches the JWT and refreshes once on 401
+- `lib/auth-context.tsx` - session state; tokens live in expo-secure-store
+- `lib/location-task.ts` - background location task (expo-task-manager) that
+  keeps posting GPS batches with the screen off
+- `lib/push.ts` - Expo push registration (no-ops without an EAS project id)
+- `lib/theme.ts` - shared colors/spacing/shadows
+
+## Configuration
+
+`EXPO_PUBLIC_API_URL` (build-time, public) points the app at the API; it falls
+back to `expo.extra.apiUrl` in `app.json`, then localhost. Never put secrets in
+`EXPO_PUBLIC_*` - anything in the bundle is public.
 
 ## Run
 
 ```bash
-npm install
-npm run start      # Expo dev server
+npm install          # from the repo root (workspace install)
+npm run start        # Expo dev server (press w for web)
 npm run typecheck
 npm run lint
 ```
+
+Native builds ship via EAS (`eas.json`); see `docs/MOBILE.md`.

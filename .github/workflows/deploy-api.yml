@@ -1,7 +1,11 @@
 name: Deploy API
 
+# Deploys after CI passes on main (workflow_run), or on manual dispatch.
+# Gating on CI means a push that fails typecheck/lint/tests never reaches AWS.
 on:
-  push:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
     branches: [main]
   workflow_dispatch:
     inputs:
@@ -19,7 +23,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: deploy-api-${{ github.event.inputs.environment || 'production' }}
+  group: deploy-api-${{ inputs.environment || 'production' }}
   cancel-in-progress: false
 
 env:
@@ -29,11 +33,11 @@ env:
   NODE_VERSION: "22"
 
 jobs:
-  # Skip the deploy when secrets aren't configured, so the template repo itself
-  # (and any fresh fork before secrets are set) passes CI without a false
-  # failure. Apps with secrets configured deploy normally.
+  # Run only when CI succeeded (or on manual dispatch), and skip cleanly when
+  # deploy secrets aren't configured so a fork stays green.
   preflight:
     name: Preflight (skip if not configured)
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     outputs:
       configured: ${{ steps.check.outputs.configured }}
@@ -47,17 +51,20 @@ jobs:
             echo "Deploy is configured. Proceeding."
           else
             echo "configured=false" >> "$GITHUB_OUTPUT"
-            echo "::notice::AWS_DEPLOY_ROLE_ARN secret is not set. Skipping deploy. Normal for the template repo itself; apps configure secrets per docs/SETUP.md."
+            echo "::notice::AWS_DEPLOY_ROLE_ARN secret is not set. Skipping deploy. Configure secrets per docs/SETUP.md."
           fi
 
   deploy:
-    name: Deploy to ${{ github.event.inputs.environment || 'production' }}
+    name: Deploy to ${{ inputs.environment || 'production' }}
     needs: preflight
     if: needs.preflight.outputs.configured == 'true'
     runs-on: ubuntu-latest
-    environment: ${{ github.event.inputs.environment || 'production' }}
+    environment: ${{ inputs.environment || 'production' }}
     steps:
       - uses: actions/checkout@v6
+        with:
+          # For workflow_run events, deploy exactly the commit CI validated.
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
 
       - uses: actions/setup-node@v6
         with:
@@ -99,10 +106,6 @@ jobs:
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           JWT_SECRET: ${{ secrets.JWT_SECRET }}
-          JWT_ISSUER: ${{ vars.JWT_ISSUER }}
-          CLASSIFIER_API_URL: ${{ vars.CLASSIFIER_API_URL }}
-          CLASSIFIER_API_KEY: ${{ secrets.CLASSIFIER_API_KEY }}
-          ENABLE_OPENSEARCH: ${{ vars.ENABLE_OPENSEARCH }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           ANTHROPIC_MODEL: ${{ vars.ANTHROPIC_MODEL }}
           LTA_ACCOUNT_KEY: ${{ secrets.LTA_ACCOUNT_KEY }}

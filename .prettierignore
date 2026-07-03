@@ -1,0 +1,13 @@
+# Lockfiles are npm-managed; don't fight the generator.
+package-lock.json
+
+# Generated / build output
+dist/
+cdk.out/
+.lambda-bundle/
+.expo/
+coverage/
+.spec-coverage/
+
+# Prisma migrations are generated SQL snapshots.
+services/api/prisma/migrations/

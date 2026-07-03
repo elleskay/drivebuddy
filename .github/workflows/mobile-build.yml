@@ -51,11 +51,11 @@ jobs:
             echo "configured=true" >> "$GITHUB_OUTPUT"
           else
             echo "configured=false" >> "$GITHUB_OUTPUT"
-            echo "::notice::EXPO_TOKEN secret is not set. Skipping. Normal for the template repo; set it per docs/MOBILE.md."
+            echo "::notice::EXPO_TOKEN secret is not set. Skipping. Set it per docs/MOBILE.md."
           fi
 
   eas:
-    name: EAS ${{ github.event.inputs.action }} (${{ github.event.inputs.profile }})
+    name: EAS ${{ inputs.action }} (${{ inputs.profile }})
     needs: preflight
     if: needs.preflight.outputs.configured == 'true'
     runs-on: ubuntu-latest
@@ -72,14 +72,14 @@ jobs:
           eas-version: latest
           token: ${{ secrets.EXPO_TOKEN }}
       - name: EAS build
-        if: github.event.inputs.action == 'build'
+        if: inputs.action == 'build'
         working-directory: ${{ env.APP_DIR }}
         run: |
           SUBMIT_FLAG=""
-          if [ "${{ github.event.inputs.submit }}" = "true" ]; then SUBMIT_FLAG="--auto-submit"; fi
-          eas build --non-interactive --profile "${{ github.event.inputs.profile }}" --platform all $SUBMIT_FLAG
+          if [ "${{ inputs.submit }}" = "true" ]; then SUBMIT_FLAG="--auto-submit"; fi
+          eas build --non-interactive --profile "${{ inputs.profile }}" --platform all $SUBMIT_FLAG
       - name: EAS update (OTA)
-        if: github.event.inputs.action == 'update'
+        if: inputs.action == 'update'
         working-directory: ${{ env.APP_DIR }}
         run: |
-          eas update --non-interactive --branch "${{ github.event.inputs.profile }}" --message "ci: ${{ github.sha }}"
+          eas update --non-interactive --branch "${{ inputs.profile }}" --message "ci: ${{ github.sha }}"

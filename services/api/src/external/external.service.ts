@@ -12,6 +12,30 @@ export interface Feed<T> {
 const LTA_BASE = "https://datamall2.mytransport.sg/ltaodataservice";
 const DATA_GOV = "https://api.data.gov.sg/v1/environment";
 
+// Raw LTA DataMall record shapes (only the fields this service reads).
+interface LtaTrafficIncident {
+  Type: string;
+  Message: string;
+  Latitude: number;
+  Longitude: number;
+}
+
+interface LtaErpRate {
+  ZoneID: string;
+  ChargeAmount: number;
+  StartTime: string;
+  EndTime: string;
+  VehicleType: string;
+}
+
+interface LtaCarparkAvailability {
+  CarParkID: string;
+  Area: string;
+  Development: string;
+  AvailableLots: number;
+  LotType: string;
+}
+
 @Injectable()
 export class ExternalService {
   private readonly log = new Logger(ExternalService.name);
@@ -30,7 +54,7 @@ export class ExternalService {
     return value;
   }
 
-  private async lta(resource: string): Promise<any[]> {
+  private async lta<T>(resource: string): Promise<T[]> {
     if (!this.ltaKey) return [];
     try {
       const res = await fetch(`${LTA_BASE}/${resource}`, {
@@ -40,7 +64,7 @@ export class ExternalService {
         this.log.warn(`LTA ${resource} -> ${res.status}`);
         return [];
       }
-      const body = (await res.json()) as { value?: any[] };
+      const body = (await res.json()) as { value?: T[] };
       return body.value ?? [];
     } catch (e) {
       this.log.warn(`LTA ${resource} failed: ${String(e)}`);
@@ -64,8 +88,12 @@ export class ExternalService {
     return { source: "data.gov.sg", lastUpdated: new Date().toISOString(), data };
   }
 
-  async traffic(): Promise<Feed<{ type: string; message: string; latitude: number; longitude: number }[]>> {
-    const rows = await this.cached("traffic", 2 * 60_000, () => this.lta("TrafficIncidents"));
+  async traffic(): Promise<
+    Feed<{ type: string; message: string; latitude: number; longitude: number }[]>
+  > {
+    const rows = await this.cached("traffic", 2 * 60_000, () =>
+      this.lta<LtaTrafficIncident>("TrafficIncidents"),
+    );
     return {
       source: "LTA DataMall",
       lastUpdated: new Date().toISOString(),
@@ -79,8 +107,18 @@ export class ExternalService {
     };
   }
 
-  async erp(): Promise<Feed<{ zone: string; chargeAmount: number; startTime: string; endTime: string; vehicleType: string }[]>> {
-    const rows = await this.cached("erp", 30 * 60_000, () => this.lta("ERPRates"));
+  async erp(): Promise<
+    Feed<
+      {
+        zone: string;
+        chargeAmount: number;
+        startTime: string;
+        endTime: string;
+        vehicleType: string;
+      }[]
+    >
+  > {
+    const rows = await this.cached("erp", 30 * 60_000, () => this.lta<LtaErpRate>("ERPRates"));
     return {
       source: "LTA DataMall",
       lastUpdated: new Date().toISOString(),
@@ -95,8 +133,14 @@ export class ExternalService {
     };
   }
 
-  async carpark(): Promise<Feed<{ id: string; area: string; development: string; availableLots: number; lotType: string }[]>> {
-    const rows = await this.cached("carpark", 60_000, () => this.lta("CarParkAvailabilityv2"));
+  async carpark(): Promise<
+    Feed<
+      { id: string; area: string; development: string; availableLots: number; lotType: string }[]
+    >
+  > {
+    const rows = await this.cached("carpark", 60_000, () =>
+      this.lta<LtaCarparkAvailability>("CarParkAvailabilityv2"),
+    );
     return {
       source: "LTA DataMall",
       lastUpdated: new Date().toISOString(),
@@ -119,7 +163,9 @@ export class ExternalService {
     toLng: number,
   ): Promise<Feed<RoutePlan | null>> {
     const key = `route:${fromLat},${fromLng},${toLat},${toLng}`;
-    const data = await this.cached(key, 10 * 60_000, () => fetchRoute(fromLat, fromLng, toLat, toLng));
+    const data = await this.cached(key, 10 * 60_000, () =>
+      fetchRoute(fromLat, fromLng, toLat, toLng),
+    );
     return { source: "OSRM", lastUpdated: new Date().toISOString(), data };
   }
 

@@ -25,7 +25,10 @@ export class TripsService {
     const first = route.points[0];
     const last = route.points[route.points.length - 1];
     const end = route.endTime ?? new Date();
-    const durationMin = Math.max(0, Math.round((end.getTime() - route.startTime.getTime()) / 60_000));
+    const durationMin = Math.max(
+      0,
+      Math.round((end.getTime() - route.startTime.getTime()) / 60_000),
+    );
 
     // Fuel cost from the main vehicle's consumption over the distance.
     const vehicle = route.user.vehicles[0];
@@ -39,7 +42,11 @@ export class TripsService {
     // ERP cost: detect which gantries the GPS trace passed and price each by the
     // charge window at the time of passing (0 outside operating hours / weekends).
     const erp = estimateErpCost(
-      route.points.map((p) => ({ latitude: p.latitude, longitude: p.longitude, timestamp: p.timestamp })),
+      route.points.map((p) => ({
+        latitude: p.latitude,
+        longitude: p.longitude,
+        timestamp: p.timestamp,
+      })),
     );
     if (erp.passes.length) {
       this.logger.log(

@@ -44,23 +44,20 @@ export default function HistoryScreen() {
   }, []);
 
   const onDelete = useCallback((r: DrivingRoute) => {
+    const doDelete = async () => {
+      try {
+        setBusyId(r.id);
+        await api.deleteRoute(r.id);
+        setRoutes((prev) => prev.filter((x) => x.id !== r.id));
+      } catch (e) {
+        Alert.alert("Delete failed", e instanceof Error ? e.message : "Please try again.");
+      } finally {
+        setBusyId(null);
+      }
+    };
     Alert.alert("Delete drive?", "This permanently removes the route, its GPS trace and summary.", [
       { text: "Cancel", style: "cancel" },
-      {
-        text: "Delete",
-        style: "destructive",
-        onPress: async () => {
-          try {
-            setBusyId(r.id);
-            await api.deleteRoute(r.id);
-            setRoutes((prev) => prev.filter((x) => x.id !== r.id));
-          } catch (e) {
-            Alert.alert("Delete failed", e instanceof Error ? e.message : "Please try again.");
-          } finally {
-            setBusyId(null);
-          }
-        },
-      },
+      { text: "Delete", style: "destructive", onPress: () => void doDelete() },
     ]);
   }, []);
 
@@ -78,7 +75,9 @@ export default function HistoryScreen() {
         data={routes}
         keyExtractor={(r) => r.id}
         contentContainerStyle={styles.list}
-        ListEmptyComponent={<Text style={styles.empty}>No drives yet. Start one from Journey Mode.</Text>}
+        ListEmptyComponent={
+          <Text style={styles.empty}>No drives yet. Start one from Journey Mode.</Text>
+        }
         renderItem={({ item }) => (
           <View style={styles.row}>
             <Pressable style={styles.info} onPress={() => router.push(`/trip/${item.id}`)}>
@@ -96,7 +95,7 @@ export default function HistoryScreen() {
               <Pressable
                 style={styles.actionBtn}
                 disabled={busyId === item.id}
-                onPress={() => onExport(item)}
+                onPress={() => void onExport(item)}
               >
                 <Text style={styles.actionText}>Export</Text>
               </Pressable>
@@ -126,7 +125,6 @@ function formatDate(iso: string): string {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#f5f7fb" },
-  center: { flex: 1, backgroundColor: "#f5f7fb", justifyContent: "center", alignItems: "center" },
   list: { padding: 16, gap: 10 },
   empty: { color: "#5b6b86", textAlign: "center", marginTop: 24 },
   row: {

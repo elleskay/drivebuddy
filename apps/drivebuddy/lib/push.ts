@@ -1,3 +1,6 @@
+/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-enum-comparison --
+   expo-notifications and expo-constants types do not resolve under the linter's
+   project service (they do under tsc, which stays the type gate for this file). */
 import { Platform } from "react-native";
 import * as Device from "expo-device";
 import * as Notifications from "expo-notifications";
@@ -6,13 +9,14 @@ import { api } from "./api";
 
 // Show alerts/badges/sounds while the app is foregrounded.
 Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowAlert: true,
-    shouldPlaySound: true,
-    shouldSetBadge: true,
-    shouldShowBanner: true,
-    shouldShowList: true,
-  }),
+  handleNotification: () =>
+    Promise.resolve({
+      shouldShowAlert: true,
+      shouldPlaySound: true,
+      shouldSetBadge: true,
+      shouldShowBanner: true,
+      shouldShowList: true,
+    }),
 });
 
 let lastToken: string | null = null;
@@ -41,11 +45,11 @@ export async function registerForPush(): Promise<string | null> {
   }
 
   const projectId =
-    (Constants.expoConfig?.extra?.eas as { projectId?: string } | undefined)?.projectId ??
+    (Constants.expoConfig?.extra as { eas?: { projectId?: string } } | undefined)?.eas?.projectId ??
     Constants.easConfig?.projectId;
   if (!projectId) {
-    // Without an EAS project, getExpoPushTokenAsync throws. Skip cleanly until
-    // EAS is configured in Phase H.
+    // Without an EAS project, getExpoPushTokenAsync throws. Skip cleanly when
+    // the app runs without EAS configured (e.g. bare expo start).
     console.warn("push: no EAS projectId; skipping push token registration");
     return null;
   }

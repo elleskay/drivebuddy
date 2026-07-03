@@ -51,6 +51,7 @@ export default function JourneyScreen() {
   const announced = useRef<Set<string>>(new Set());
   const mutedRef = useRef(false);
   const alertTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const fuelTipTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Breathing pulse animation for the recording ring.
   const pulse = useRef(new Animated.Value(0)).current;
@@ -62,8 +63,18 @@ export default function JourneyScreen() {
     }
     const loop = Animated.loop(
       Animated.sequence([
-        Animated.timing(pulse, { toValue: 1, duration: 1100, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
-        Animated.timing(pulse, { toValue: 0, duration: 1100, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
+        Animated.timing(pulse, {
+          toValue: 1,
+          duration: 1100,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: true,
+        }),
+        Animated.timing(pulse, {
+          toValue: 0,
+          duration: 1100,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: true,
+        }),
       ]),
     );
     loop.start();
@@ -72,7 +83,7 @@ export default function JourneyScreen() {
 
   useEffect(() => {
     mutedRef.current = muted;
-    if (muted) Speech.stop();
+    if (muted) void Speech.stop();
   }, [muted]);
 
   const announce = useCallback((key: string, text: string) => {
@@ -123,7 +134,7 @@ export default function JourneyScreen() {
     setStarting(true);
     try {
       const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== "granted") {
+      if (status !== Location.PermissionStatus.GRANTED) {
         setError("Location permission is required to track your drive.");
         return;
       }
@@ -142,7 +153,7 @@ export default function JourneyScreen() {
       let bg = false;
       try {
         const bgPerm = await Location.requestBackgroundPermissionsAsync();
-        if (bgPerm.status === "granted") {
+        if (bgPerm.status === Location.PermissionStatus.GRANTED) {
           await setActiveRouteId(route.id);
           await Location.startLocationUpdatesAsync(LOCATION_TASK, {
             accuracy: Location.Accuracy.High,
@@ -183,11 +194,14 @@ export default function JourneyScreen() {
         .then(([weather, petrol, insights]) => {
           const wet = weather?.data?.find((f) => /rain|shower|thunder/i.test(f.forecast));
           if (wet) {
-            announce("weather", `Weather alert: ${wet.forecast.toLowerCase()} expected. Drive carefully and keep your distance.`);
+            announce(
+              "weather",
+              `Weather alert: ${wet.forecast.toLowerCase()} expected. Drive carefully and keep your distance.`,
+            );
           }
           if (insights && insights.recentDistanceKm >= 350 && petrol?.data?.length) {
-            const cheapest = [...petrol.data].sort((a, b) => a.price - b.price)[0]!;
-            setTimeout(
+            const cheapest = [...petrol.data].sort((a, b) => a.price - b.price)[0];
+            fuelTipTimer.current = setTimeout(
               () =>
                 announce(
                   "fuel",
@@ -234,7 +248,7 @@ export default function JourneyScreen() {
           void flush();
         }
       }, 5000);
-    } catch (e) {
+    } catch {
       setError("Could not start tracking. Check your connection.");
     } finally {
       setStarting(false);
@@ -243,11 +257,12 @@ export default function JourneyScreen() {
 
   const stop = useCallback(async () => {
     setStopping(true);
-    Speech.stop();
+    void Speech.stop();
     sub.current?.remove();
     sub.current = null;
     if (timer.current) clearInterval(timer.current);
     if (alertTimer.current) clearTimeout(alertTimer.current);
+    if (fuelTipTimer.current) clearTimeout(fuelTipTimer.current);
     // Stop background recording if it was running.
     try {
       if (bgActive.current && (await Location.hasStartedLocationUpdatesAsync(LOCATION_TASK))) {
@@ -273,7 +288,8 @@ export default function JourneyScreen() {
       sub.current?.remove();
       if (timer.current) clearInterval(timer.current);
       if (alertTimer.current) clearTimeout(alertTimer.current);
-      Speech.stop();
+      if (fuelTipTimer.current) clearTimeout(fuelTipTimer.current);
+      void Speech.stop();
     };
   }, []);
 
@@ -305,14 +321,16 @@ export default function JourneyScreen() {
                 styles.pulseGlow,
                 {
                   opacity: pulse.interpolate({ inputRange: [0, 1], outputRange: [0.35, 0] }),
-                  transform: [{ scale: pulse.interpolate({ inputRange: [0, 1], outputRange: [1, 1.45] }) }],
+                  transform: [
+                    { scale: pulse.interpolate({ inputRange: [0, 1], outputRange: [1, 1.45] }) },
+                  ],
                 },
               ]}
             />
           ) : null}
           {tracking ? (
             <LinearGradient
-              colors={gradients.primary as unknown as string[]}
+              colors={gradients.primary}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 1 }}
               style={styles.pulse}
@@ -342,9 +360,14 @@ export default function JourneyScreen() {
         ) : null}
 
         {!tracking ? (
-          <Button label="Start drive" onPress={start} loading={starting} />
+          <Button label="Start drive" onPress={() => void start()} loading={starting} />
         ) : (
-          <Button label="End drive" variant="danger" onPress={stop} loading={stopping} />
+          <Button
+            label="End drive"
+            variant="danger"
+            onPress={() => void stop()}
+            loading={stopping}
+          />
         )}
 
         <Text style={styles.note}>

@@ -1,7 +1,11 @@
 // Serialize BigInt as string in JSON responses (Prisma RoutePoint ids).
-(BigInt.prototype as unknown as { toJSON: () => string }).toJSON = function () { return this.toString(); };
+(BigInt.prototype as unknown as { toJSON: (this: bigint) => string }).toJSON = function (
+  this: bigint,
+) {
+  return this.toString();
+};
 import { NestFactory } from "@nestjs/core";
-import { ValidationPipe } from "@nestjs/common";
+import { Logger, ValidationPipe } from "@nestjs/common";
 import { AppModule } from "./app.module";
 
 // Local / container bootstrap. The Lambda entry point is src/lambda.ts.
@@ -18,8 +22,7 @@ async function bootstrap() {
   app.enableShutdownHooks();
   const port = process.env.PORT ?? 3000;
   await app.listen(port);
-  // eslint-disable-next-line no-console
-  console.warn(`API listening on :${port}`);
+  new Logger("bootstrap").log(`API listening on :${port}`);
 }
 
 void bootstrap();
