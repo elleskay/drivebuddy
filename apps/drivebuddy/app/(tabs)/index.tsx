@@ -1,7 +1,7 @@
 import { useCallback, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useFocusEffect, useRouter } from "expo-router";
+import { useFocusEffect, useRouter, type Href } from "expo-router";
 import type { Ionicons } from "@expo/vector-icons";
 import { api, type Insights } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
@@ -32,7 +32,7 @@ export default function HomeScreen() {
   const tiles: {
     title: string;
     desc: string;
-    route: string;
+    route: Href;
     icon: IoniconName;
     tint: string;
     badge?: number;
@@ -106,13 +106,13 @@ export default function HomeScreen() {
         <View style={styles.grid}>
           {tiles.map((t) => (
             <NavCard
-              key={t.route}
+              key={t.title}
               title={t.title}
               desc={t.desc}
               icon={t.icon}
               tint={t.tint}
               badge={t.badge}
-              onPress={() => router.push(t.route as never)}
+              onPress={() => router.push(t.route)}
             />
           ))}
         </View>
