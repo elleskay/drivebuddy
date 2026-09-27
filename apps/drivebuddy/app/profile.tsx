@@ -1,11 +1,13 @@
 import { useEffect, useState } from "react";
-import { ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
-import { SkeletonList } from "@/components/skeleton";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { ScrollView, View } from "react-native";
 import { api, type Profile } from "@/lib/api";
-import { Button } from "@/components/ui";
+import { makeStyles } from "@/lib/theme-context";
+import { space } from "@/lib/theme";
+import { SkeletonList } from "@/components/skeleton";
+import { Avatar, Banner, Button, Screen, ScreenHeader, Text, TextField } from "@/components/ui";
 
 export default function ProfileScreen() {
+  const styles = useStyles();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [email, setEmail] = useState("");
@@ -13,7 +15,7 @@ export default function ProfileScreen() {
   const [gender, setGender] = useState("");
   const [dateOfBirth, setDateOfBirth] = useState("");
   const [homeAddress, setHomeAddress] = useState("");
-  const [msg, setMsg] = useState<string | null>(null);
+  const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
 
   useEffect(() => {
     void (async () => {
@@ -40,9 +42,9 @@ export default function ProfileScreen() {
         dateOfBirth: /^\d{4}-\d{2}-\d{2}$/.test(dateOfBirth) ? dateOfBirth : undefined,
         homeAddress: homeAddress.trim() || undefined,
       });
-      setMsg("Saved");
+      setMsg({ ok: true, text: "Profile saved." });
     } catch {
-      setMsg("Could not save. Try again.");
+      setMsg({ ok: false, text: "Could not save. Try again." });
     } finally {
       setSaving(false);
     }
@@ -50,92 +52,82 @@ export default function ProfileScreen() {
 
   if (loading) {
     return (
-      <View style={styles.container}>
+      <Screen>
         <SkeletonList />
-      </View>
+      </Screen>
     );
   }
 
   return (
-    <SafeAreaView style={styles.container} edges={["bottom"]}>
-      <ScrollView contentContainerStyle={styles.inner}>
-        <Field label="Email">
-          <Text style={styles.readonly}>{email}</Text>
-        </Field>
-        <Field label="Full name">
-          <TextInput
-            style={styles.input}
-            value={fullName}
-            onChangeText={setFullName}
-            placeholderTextColor="#94a3b8"
-          />
-        </Field>
-        <Field label="Gender">
-          <TextInput
-            style={styles.input}
-            value={gender}
-            onChangeText={setGender}
-            placeholder="e.g. Male / Female / Other"
-            placeholderTextColor="#94a3b8"
-          />
-        </Field>
-        <Field label="Date of birth (YYYY-MM-DD)">
-          <TextInput
-            style={styles.input}
-            value={dateOfBirth}
-            onChangeText={setDateOfBirth}
-            placeholder="1995-06-15"
-            placeholderTextColor="#94a3b8"
-            autoCapitalize="none"
-          />
-        </Field>
-        <Field label="Home address">
-          <TextInput
-            style={[styles.input, { height: 80 }]}
-            value={homeAddress}
-            onChangeText={setHomeAddress}
-            multiline
-            placeholderTextColor="#94a3b8"
-          />
-        </Field>
+    <Screen>
+      <ScrollView
+        contentContainerStyle={styles.content}
+        keyboardShouldPersistTaps="handled"
+        automaticallyAdjustKeyboardInsets
+        showsVerticalScrollIndicator={false}
+      >
+        <ScreenHeader title="Profile" subtitle="Used to personalise alerts and insights" />
 
-        {msg ? <Text style={styles.msg}>{msg}</Text> : null}
+        <View style={styles.identity}>
+          <Avatar name={fullName || email} size={64} />
+          <View style={styles.flex}>
+            <Text variant="title3" numberOfLines={1}>
+              {fullName || "Your name"}
+            </Text>
+            <Text variant="subhead" tone="secondary" numberOfLines={1}>
+              {email}
+            </Text>
+          </View>
+        </View>
 
-        <Button
-          label="Save changes"
-          onPress={() => void onSave()}
-          loading={saving}
-          style={{ marginTop: 8 }}
+        <TextField
+          label="Full name"
+          icon="person-outline"
+          value={fullName}
+          onChangeText={setFullName}
+          autoCapitalize="words"
+          autoComplete="name"
         />
+        <TextField
+          label="Gender"
+          icon="male-female-outline"
+          value={gender}
+          onChangeText={setGender}
+          placeholder="e.g. Male / Female / Other"
+        />
+        <TextField
+          label="Date of birth"
+          icon="calendar-outline"
+          value={dateOfBirth}
+          onChangeText={setDateOfBirth}
+          placeholder="YYYY-MM-DD"
+          autoCapitalize="none"
+          keyboardType="numbers-and-punctuation"
+        />
+        <TextField
+          label="Home address"
+          icon="home-outline"
+          value={homeAddress}
+          onChangeText={setHomeAddress}
+          multiline
+        />
+
+        {msg ? (
+          <Banner
+            tone={msg.ok ? "success" : "danger"}
+            icon={msg.ok ? "checkmark-circle-outline" : "alert-circle-outline"}
+            message={msg.text}
+          />
+        ) : null}
+
+        <Button label="Save changes" onPress={() => void onSave()} loading={saving} />
       </ScrollView>
-    </SafeAreaView>
+    </Screen>
   );
 }
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <View style={styles.field}>
-      <Text style={styles.label}>{label}</Text>
-      {children}
-    </View>
-  );
-}
-
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#f5f7fb" },
-  inner: { padding: 20, gap: 14 },
-  field: { gap: 6 },
-  label: { color: "#5b6b86", fontSize: 13, fontWeight: "600" },
-  input: {
-    backgroundColor: "#ffffff",
-    borderColor: "#e4e9f2",
-    borderWidth: 1,
-    borderRadius: 12,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    color: "#0f172a",
-    fontSize: 16,
-  },
-  readonly: { color: "#5b6b86", fontSize: 16, paddingVertical: 12 },
-  msg: { color: "#16a34a", textAlign: "center" },
-});
+const useStyles = makeStyles(() => ({
+  flex: { flex: 1, minWidth: 0 },
+  content: { padding: space.xl, paddingTop: space.xs, gap: space.lg },
+  identity: { flexDirection: "row", alignItems: "center", gap: space.lg, marginBottom: space.xs },
+}));

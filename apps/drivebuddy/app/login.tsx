@@ -1,16 +1,18 @@
 import { useState } from "react";
-import { Platform, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { KeyboardAvoidingView, Platform, Pressable, ScrollView, View } from "react-native";
 import { Link } from "expo-router";
-import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import { useAuth } from "@/lib/auth-context";
 import { ApiError } from "@/lib/api";
-import { Button } from "@/components/ui";
-import { colors, gradients, radius, shadow, spacing } from "@/lib/theme";
+import { makeStyles, useTheme } from "@/lib/theme-context";
+import { space } from "@/lib/theme";
+import { AuthHero } from "@/components/auth-hero";
+import { Banner, Button, Card, IconWell, Screen, Text, TextField } from "@/components/ui";
 
 export default function LoginScreen() {
   const { signIn } = useAuth();
+  const t = useTheme();
+  const styles = useStyles();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
@@ -29,110 +31,104 @@ export default function LoginScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.inner}>
-        <View style={styles.brandWrap}>
-          <LinearGradient
-            colors={gradients.primary}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={styles.logo}
-          >
-            <Ionicons name="car-sport" size={34} color="#fff" />
-          </LinearGradient>
-          <Text style={styles.brand}>DriveBuddy</Text>
-          <Text style={styles.subtitle}>Your smart driving companion</Text>
-        </View>
+    <Screen edges={["top", "bottom"]}>
+      <KeyboardAvoidingView
+        style={styles.flex}
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
+      >
+        <ScrollView
+          contentContainerStyle={styles.content}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
+          <AuthHero title={"Drive smarter\nin Singapore."} />
 
-        {error ? <Text style={styles.error}>{error}</Text> : null}
+          <View style={styles.intro}>
+            <Text variant="title2">Welcome back</Text>
+            <Text variant="subhead" tone="secondary">
+              Live ERP, traffic and fuel alerts, trip costs and an AI co-pilot you can talk to.
+            </Text>
+          </View>
 
-        <TextInput
-          style={styles.input}
-          placeholder="Email"
-          placeholderTextColor={colors.textDim}
-          autoCapitalize="none"
-          keyboardType="email-address"
-          value={email}
-          onChangeText={setEmail}
-        />
-        <TextInput
-          style={styles.input}
-          placeholder="Password"
-          placeholderTextColor={colors.textDim}
-          secureTextEntry
-          value={password}
-          onChangeText={setPassword}
-        />
+          {error ? <Banner tone="danger" icon="alert-circle-outline" message={error} /> : null}
 
-        <Button
-          label="Sign in"
-          onPress={() => void onSubmit()}
-          loading={busy}
-          style={{ marginTop: spacing.sm }}
-        />
+          <TextField
+            label="Email"
+            icon="mail-outline"
+            placeholder="you@example.com"
+            autoCapitalize="none"
+            autoComplete="email"
+            keyboardType="email-address"
+            textContentType="emailAddress"
+            value={email}
+            onChangeText={setEmail}
+          />
+          <TextField
+            label="Password"
+            icon="lock-closed-outline"
+            placeholder="Your password"
+            secure
+            autoComplete="password"
+            textContentType="password"
+            returnKeyType="go"
+            value={password}
+            onChangeText={setPassword}
+            onSubmitEditing={() => void onSubmit()}
+          />
 
-        {Platform.OS === "web" ? (
-          <Pressable
-            style={styles.demo}
-            onPress={() => {
-              setEmail("demo@drivebuddy.app");
-              setPassword("DriveBuddy123!");
-            }}
-          >
-            <Text style={styles.demoText}>Use the demo account</Text>
-            <Text style={styles.demoSub}>demo@drivebuddy.app · DriveBuddy123!</Text>
-          </Pressable>
-        ) : null}
+          <Button label="Sign in" onPress={() => void onSubmit()} loading={busy} />
 
-        <Link href="/register" style={styles.linkRow}>
-          <Text style={styles.linkMuted}>New here? </Text>
-          <Text style={styles.link}>Create an account</Text>
-        </Link>
-      </View>
-    </SafeAreaView>
+          {Platform.OS === "web" ? (
+            <Card
+              variant="muted"
+              accessibilityLabel="Use the demo account"
+              onPress={() => {
+                setEmail("demo@drivebuddy.app");
+                setPassword("DriveBuddy123!");
+              }}
+              style={styles.demo}
+            >
+              <IconWell icon="flash-outline" category="traffic" size={38} />
+              <View style={styles.flex}>
+                <Text variant="subheadStrong">Use the demo account</Text>
+                <Text variant="caption" tone="secondary">
+                  demo@drivebuddy.app · DriveBuddy123!
+                </Text>
+              </View>
+              <Ionicons name="arrow-forward" size={18} color={t.color.textSecondary} />
+            </Card>
+          ) : null}
+
+          <View style={styles.footer}>
+            <Text variant="subhead" tone="secondary">
+              New here?
+            </Text>
+            <Link href="/register" asChild>
+              <Pressable hitSlop={10} accessibilityRole="link">
+                <Text variant="subheadStrong" style={styles.link}>
+                  Create an account
+                </Text>
+              </Pressable>
+            </Link>
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </Screen>
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.bg },
-  inner: { flex: 1, justifyContent: "center", paddingHorizontal: 24, gap: 12 },
-  brandWrap: { alignItems: "center", marginBottom: spacing.lg },
-  logo: {
-    width: 72,
-    height: 72,
-    borderRadius: 20,
-    alignItems: "center",
+const useStyles = makeStyles(() => ({
+  flex: { flex: 1, minWidth: 0 },
+  content: { flexGrow: 1, padding: space.xl, gap: space.lg },
+  intro: { gap: space.xs, marginTop: space.sm },
+  demo: { flexDirection: "row", alignItems: "center", gap: space.md },
+  footer: {
+    flexDirection: "row",
     justifyContent: "center",
-    marginBottom: spacing.md,
-    ...shadow,
-    shadowOpacity: 0.25,
-    shadowColor: "#4338ca",
-  },
-  brand: { color: colors.text, fontSize: 32, fontWeight: "800", textAlign: "center" },
-  subtitle: { color: colors.textMuted, fontSize: 15, textAlign: "center", marginTop: 4 },
-  input: {
-    backgroundColor: colors.surface,
-    borderColor: colors.border,
-    borderWidth: 1,
-    borderRadius: radius.md,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    color: colors.text,
-    fontSize: 16,
-  },
-  demo: {
-    marginTop: 14,
     alignItems: "center",
-    paddingVertical: 10,
-    borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.surface,
+    gap: 6,
+    marginTop: "auto",
+    paddingTop: space.md,
   },
-  demoText: { color: colors.primary, fontWeight: "700", fontSize: 14 },
-  demoSub: { color: colors.textMuted, fontSize: 12, marginTop: 2 },
-  linkRow: { marginTop: 18, textAlign: "center" },
-  linkMuted: { color: colors.textMuted },
-  link: { color: colors.primary, fontWeight: "700" },
-  error: { color: colors.danger, textAlign: "center" },
-});
+  link: { textDecorationLine: "underline" },
+}));

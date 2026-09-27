@@ -1,34 +1,47 @@
-import { useCallback, useEffect, useState } from "react";
-import {
-  ActivityIndicator,
-  Alert,
-  FlatList,
-  Pressable,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-} from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
-import { Ionicons } from "@expo/vector-icons";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { FlatList, View } from "react-native";
 import { api, ApiError, type FuelType, type Vehicle } from "@/lib/api";
+import { confirmAction, notify } from "@/lib/dialog";
+import type { IconName } from "@/lib/icons";
+import { makeStyles, useTheme } from "@/lib/theme-context";
+import { font, radius, space, type Category } from "@/lib/theme";
 import { SkeletonList } from "@/components/skeleton";
-import { accent, radius, shadow } from "@/lib/theme";
+import {
+  Banner,
+  Button,
+  Card,
+  EmptyState,
+  IconButton,
+  IconWell,
+  Pill,
+  Screen,
+  ScreenHeader,
+  Segmented,
+  Text,
+  TextField,
+} from "@/components/ui";
 
-const FUEL_ICON: Record<FuelType, React.ComponentProps<typeof Ionicons>["name"]> = {
+const FUEL_ICON: Record<FuelType, IconName> = {
   Petrol: "car-sport-outline",
   Hybrid: "leaf-outline",
   Electric: "flash-outline",
 };
-const FUEL_TINT: Record<FuelType, string> = {
-  Petrol: accent.routine,
-  Hybrid: accent.fuel,
-  Electric: accent.weather,
+const FUEL_CATEGORY: Record<FuelType, Category> = {
+  Petrol: "routine",
+  Hybrid: "fuel",
+  Electric: "weather",
 };
 
-const FUEL_TYPES: FuelType[] = ["Petrol", "Hybrid", "Electric"];
+const FUEL_OPTIONS: { label: string; value: FuelType }[] = [
+  { label: "Petrol", value: "Petrol" },
+  { label: "Hybrid", value: "Hybrid" },
+  { label: "Electric", value: "Electric" },
+];
 
 export default function VehiclesScreen() {
+  const t = useTheme();
+  const styles = useStyles();
+  const listRef = useRef<FlatList<Vehicle>>(null);
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [loading, setLoading] = useState(true);
   const [adding, setAdding] = useState(false);
@@ -66,6 +79,8 @@ export default function VehiclesScreen() {
     setFuelType(v.fuelType);
     setConsumption(String(v.fuelConsumption));
     setError(null);
+    // The editor is the list footer; bring it into view.
+    setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 50);
   }
 
   async function onSubmit() {
@@ -101,213 +116,180 @@ export default function VehiclesScreen() {
     }
   }
 
-  function onDelete(v: Vehicle) {
-    const doDelete = async () => {
-      try {
-        await api.removeVehicle(v.id);
-      } catch (e) {
-        Alert.alert("Delete failed", e instanceof Error ? e.message : "Please try again.");
-      } finally {
-        await load();
-      }
-    };
-    Alert.alert("Delete vehicle", `Remove ${v.vehicleNumber}?`, [
-      { text: "Cancel", style: "cancel" },
-      { text: "Delete", style: "destructive", onPress: () => void doDelete() },
-    ]);
+  async function onDelete(v: Vehicle) {
+    const ok = await confirmAction({
+      title: "Delete vehicle",
+      message: `Remove ${v.vehicleNumber}?`,
+      confirmLabel: "Delete",
+      destructive: true,
+    });
+    if (!ok) return;
+    try {
+      await api.removeVehicle(v.id);
+    } catch (e) {
+      notify("Delete failed", e instanceof Error ? e.message : "Please try again.");
+    } finally {
+      await load();
+    }
   }
 
   if (loading) {
     return (
-      <View style={styles.container}>
+      <Screen>
         <SkeletonList />
-      </View>
+      </Screen>
     );
   }
 
+  const unit = fuelType === "Electric" ? "kWh" : "L";
+
   return (
-    <SafeAreaView style={styles.container} edges={["bottom"]}>
+    <Screen>
       <FlatList
+        ref={listRef}
         data={vehicles}
         keyExtractor={(v) => v.id}
-        contentContainerStyle={styles.list}
+        contentContainerStyle={styles.content}
+        keyboardShouldPersistTaps="handled"
+        automaticallyAdjustKeyboardInsets
+        showsVerticalScrollIndicator={false}
+        ListHeaderComponent={
+          <ScreenHeader
+            title="My vehicles"
+            subtitle="Fuel cost on every trip uses your main vehicle"
+            style={styles.header}
+          />
+        }
         ListEmptyComponent={
-          <Text style={styles.empty}>No vehicles yet. Add your first one below.</Text>
+          <EmptyState
+            icon="car-outline"
+            title="No vehicles yet"
+            message="Add your car below so trip costs use its real fuel consumption."
+          />
         }
         renderItem={({ item }) => (
-          <View style={styles.vehicle}>
-            <View style={[styles.vIcon, { backgroundColor: FUEL_TINT[item.fuelType] + "1a" }]}>
-              <Ionicons
-                name={FUEL_ICON[item.fuelType]}
-                size={22}
-                color={FUEL_TINT[item.fuelType]}
+          <Card style={styles.vehicle}>
+            <View style={styles.vehicleTop}>
+              <View style={styles.plate}>
+                <Text style={styles.plateText} numberOfLines={1}>
+                  {item.vehicleNumber}
+                </Text>
+              </View>
+              {item.isMain ? (
+                <Pill label="Main" tone="solid" icon="star" />
+              ) : (
+                <Button
+                  label="Set main"
+                  icon="star-outline"
+                  variant="secondary"
+                  size="sm"
+                  onPress={() => void onSetMain(item.id)}
+                />
+              )}
+            </View>
+            <View style={styles.vehicleMeta}>
+              <IconWell
+                icon={FUEL_ICON[item.fuelType]}
+                category={FUEL_CATEGORY[item.fuelType]}
+                size={36}
+              />
+              <View style={styles.flex}>
+                <Text variant="callout">{item.fuelType}</Text>
+                <Text variant="footnote" tone="secondary">
+                  {item.fuelConsumption} {item.fuelType === "Electric" ? "kWh" : "L"} / 100 km
+                </Text>
+              </View>
+              <IconButton
+                icon="create-outline"
+                variant="muted"
+                size={36}
+                accessibilityLabel={`Edit ${item.vehicleNumber}`}
+                onPress={() => startEdit(item)}
+              />
+              <IconButton
+                icon="trash-outline"
+                variant="muted"
+                size={36}
+                color={t.color.danger}
+                accessibilityLabel={`Delete ${item.vehicleNumber}`}
+                onPress={() => void onDelete(item)}
               />
             </View>
-            <View style={{ flex: 1 }}>
-              <View style={styles.row}>
-                <Text style={styles.plate}>{item.vehicleNumber}</Text>
-                {item.isMain ? <Text style={styles.mainBadge}>MAIN</Text> : null}
-              </View>
-              <Text style={styles.meta}>
-                {item.fuelType} · {item.fuelConsumption}{" "}
-                {item.fuelType === "Electric" ? "kWh" : "L"}/100km
-              </Text>
-            </View>
-            {!item.isMain ? (
-              <Pressable onPress={() => void onSetMain(item.id)} style={styles.smallBtn}>
-                <Text style={styles.smallBtnText}>Set main</Text>
-              </Pressable>
-            ) : null}
-            <Pressable onPress={() => startEdit(item)} style={styles.smallBtn}>
-              <Text style={styles.smallBtnText}>Edit</Text>
-            </Pressable>
-            <Pressable onPress={() => onDelete(item)} style={styles.deleteBtn}>
-              <Text style={styles.deleteText}>Delete</Text>
-            </Pressable>
-          </View>
+          </Card>
         )}
         ListFooterComponent={
-          <View style={styles.addCard}>
-            <Text style={styles.addTitle}>{editingId ? "Edit vehicle" : "Add a vehicle"}</Text>
-            {error ? <Text style={styles.error}>{error}</Text> : null}
-            <TextInput
-              style={styles.input}
-              placeholder="Plate number (e.g. SGP1234A)"
-              placeholderTextColor="#94a3b8"
+          <Card style={styles.form}>
+            <Text variant="title3">{editingId ? "Edit vehicle" : "Add a vehicle"}</Text>
+            {error ? <Banner tone="danger" icon="alert-circle-outline" message={error} /> : null}
+            <TextField
+              label="Plate number"
+              icon="pricetag-outline"
+              placeholder="e.g. SGP1234A"
               autoCapitalize="characters"
               value={number}
               onChangeText={setNumber}
             />
-            <View style={styles.fuelRow}>
-              {FUEL_TYPES.map((f) => (
-                <Pressable
-                  key={f}
-                  onPress={() => setFuelType(f)}
-                  style={[styles.fuelChip, fuelType === f && styles.fuelChipActive]}
-                >
-                  <Text style={[styles.fuelChipText, fuelType === f && styles.fuelChipTextActive]}>
-                    {f}
-                  </Text>
-                </Pressable>
-              ))}
+            <View style={styles.fieldGroup}>
+              <Text variant="subheadStrong" tone="secondary">
+                Fuel type
+              </Text>
+              <Segmented options={FUEL_OPTIONS} value={fuelType} onChange={setFuelType} />
             </View>
-            <TextInput
-              style={styles.input}
-              placeholder="Fuel consumption (L or kWh / 100km)"
-              placeholderTextColor="#94a3b8"
+            <TextField
+              label={`Consumption (${unit} / 100 km)`}
+              icon="speedometer-outline"
+              placeholder={fuelType === "Electric" ? "e.g. 15" : "e.g. 7.5"}
               keyboardType="decimal-pad"
               value={consumption}
               onChangeText={setConsumption}
             />
-            <Pressable
-              style={[styles.button, adding && { opacity: 0.6 }]}
+            <Button
+              label={editingId ? "Save changes" : "Add vehicle"}
+              icon={editingId ? "checkmark" : "add"}
               onPress={() => void onSubmit()}
-              disabled={adding}
-            >
-              {adding ? (
-                <ActivityIndicator color="#fff" />
-              ) : (
-                <Text style={styles.buttonText}>{editingId ? "Save changes" : "Add vehicle"}</Text>
-              )}
-            </Pressable>
+              loading={adding}
+            />
             {editingId ? (
-              <Pressable style={styles.cancelBtn} onPress={resetForm} disabled={adding}>
-                <Text style={styles.cancelText}>Cancel</Text>
-              </Pressable>
+              <Button
+                label="Cancel"
+                variant="ghost"
+                size="md"
+                onPress={resetForm}
+                disabled={adding}
+              />
             ) : null}
-          </View>
+          </Card>
         }
       />
-    </SafeAreaView>
+    </Screen>
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#f5f7fb" },
-  list: { padding: 16, gap: 12 },
-  empty: { color: "#5b6b86", textAlign: "center", marginVertical: 16 },
-  vehicle: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#ffffff",
-    borderColor: "#e4e9f2",
-    borderWidth: 1,
-    borderRadius: 14,
-    padding: 16,
-    gap: 10,
-    ...shadow,
+const useStyles = makeStyles((t) => ({
+  flex: { flex: 1, minWidth: 0 },
+  content: { padding: space.xl, paddingTop: space.xs, gap: space.md },
+  header: { marginBottom: space.sm },
+
+  vehicle: { gap: space.md },
+  vehicleTop: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  // Singapore number plate: white characters on black.
+  plate: {
+    backgroundColor: t.color.plate,
+    borderRadius: radius.xs,
+    borderWidth: t.scheme === "dark" ? 1 : 0,
+    borderColor: "rgba(255,255,255,0.18)",
+    paddingHorizontal: space.md,
+    paddingVertical: 6,
   },
-  vIcon: {
-    width: 44,
-    height: 44,
-    borderRadius: radius.md,
-    alignItems: "center",
-    justifyContent: "center",
+  plateText: {
+    color: t.color.onPlate,
+    fontFamily: font.bold,
+    fontSize: 18,
+    lineHeight: 22,
+    letterSpacing: 2,
   },
-  row: { flexDirection: "row", alignItems: "center", gap: 8 },
-  plate: { color: "#0f172a", fontSize: 18, fontWeight: "800", letterSpacing: 1 },
-  mainBadge: {
-    color: "#f5f7fb",
-    backgroundColor: "#16a34a",
-    fontSize: 10,
-    fontWeight: "800",
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 4,
-    overflow: "hidden",
-  },
-  meta: { color: "#5b6b86", fontSize: 13, marginTop: 4 },
-  smallBtn: {
-    backgroundColor: "#e8f0ff",
-    borderRadius: 8,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
-  },
-  smallBtnText: { color: "#2563eb", fontSize: 12, fontWeight: "700" },
-  deleteBtn: { padding: 6 },
-  deleteText: { color: "#dc2626", fontSize: 16, fontWeight: "700" },
-  addCard: {
-    backgroundColor: "#eef2f9",
-    borderColor: "#e4e9f2",
-    borderWidth: 1,
-    borderRadius: 14,
-    padding: 16,
-    gap: 10,
-    marginTop: 8,
-  },
-  addTitle: { color: "#0f172a", fontSize: 16, fontWeight: "700" },
-  input: {
-    backgroundColor: "#ffffff",
-    borderColor: "#e4e9f2",
-    borderWidth: 1,
-    borderRadius: 12,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    color: "#0f172a",
-    fontSize: 16,
-  },
-  fuelRow: { flexDirection: "row", gap: 8 },
-  fuelChip: {
-    flex: 1,
-    alignItems: "center",
-    paddingVertical: 10,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: "#e4e9f2",
-    backgroundColor: "#ffffff",
-  },
-  fuelChipActive: { backgroundColor: "#2563eb", borderColor: "#2563eb" },
-  fuelChipText: { color: "#5b6b86", fontWeight: "700", fontSize: 13 },
-  fuelChipTextActive: { color: "#fff" },
-  button: {
-    backgroundColor: "#2563eb",
-    borderRadius: 12,
-    paddingVertical: 14,
-    alignItems: "center",
-    marginTop: 4,
-  },
-  buttonText: { color: "#fff", fontSize: 16, fontWeight: "700" },
-  cancelBtn: { alignItems: "center", paddingVertical: 8 },
-  cancelText: { color: "#5b6b86", fontSize: 14, fontWeight: "600" },
-  error: { color: "#dc2626" },
-});
+  vehicleMeta: { flexDirection: "row", alignItems: "center", gap: space.sm },
+
+  form: { gap: space.lg, marginTop: space.sm },
+  fieldGroup: { gap: space.sm },
+}));

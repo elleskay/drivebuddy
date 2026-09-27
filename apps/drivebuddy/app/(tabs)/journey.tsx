@@ -1,15 +1,44 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Animated, Easing, Pressable, StyleSheet, Text, View } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
-import { LinearGradient } from "expo-linear-gradient";
+import { ActivityIndicator, Animated, Easing, Pressable, ScrollView, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import * as Location from "expo-location";
 import * as Speech from "expo-speech";
 import { api, type ErpGantry, type GpsSample, type TrafficItem } from "@/lib/api";
 import { LOCATION_TASK, setActiveRouteId } from "@/lib/location-task";
-import { Button } from "@/components/ui";
-import { colors, gradients, shadow } from "@/lib/theme";
+import type { IconName } from "@/lib/icons";
+import { makeStyles, useTheme } from "@/lib/theme-context";
+import { space, type Category } from "@/lib/theme";
+import {
+  Banner,
+  Button,
+  Card,
+  IconButton,
+  IconWell,
+  Pill,
+  Screen,
+  ScreenHeader,
+  Stat,
+  Text,
+} from "@/components/ui";
+
+// Android foreground-service notification accent (matches app.json).
+const NOTIFICATION_COLOR = "#4D7C0F";
+
+const FEATURES: { label: string; icon: IconName; category: Category }[] = [
+  { label: "ERP gantries", icon: "card-outline", category: "erp" },
+  { label: "Traffic incidents", icon: "warning-outline", category: "traffic" },
+  { label: "Rain warnings", icon: "rainy-outline", category: "weather" },
+  { label: "Fuel stop tips", icon: "water-outline", category: "fuel" },
+];
+
+/** 83 -> "1:23", 3723 -> "1:02:03". */
+function formatElapsed(total: number): string {
+  const h = Math.floor(total / 3600);
+  const m = Math.floor((total % 3600) / 60);
+  const s = String(total % 60).padStart(2, "0");
+  return h > 0 ? `${h}:${String(m).padStart(2, "0")}:${s}` : `${m}:${s}`;
+}
 
 // In-drive alert tuning.
 const GANTRY_RADIUS_KM = 0.35; // announce an ERP gantry within ~350m
@@ -28,6 +57,8 @@ function km(aLat: number, aLng: number, bLat: number, bLng: number): number {
 
 export default function JourneyScreen() {
   const router = useRouter();
+  const t = useTheme();
+  const styles = useStyles();
   const [tracking, setTracking] = useState(false);
   const [starting, setStarting] = useState(false);
   const [stopping, setStopping] = useState(false);
@@ -164,7 +195,7 @@ export default function JourneyScreen() {
             foregroundService: {
               notificationTitle: "DriveBuddy is recording your drive",
               notificationBody: "Your route keeps recording even with the screen off.",
-              notificationColor: "#2563eb",
+              notificationColor: NOTIFICATION_COLOR,
             },
           });
           bg = true;
@@ -279,7 +310,8 @@ export default function JourneyScreen() {
     } finally {
       setTracking(false);
       setStopping(false);
-      if (id) router.replace(`/trip/${id}`);
+      // push (not replace) keeps the tabs underneath, so Back returns to Drive.
+      if (id) router.push(`/trip/${id}`);
     }
   }, [flush, router]);
 
@@ -293,171 +325,197 @@ export default function JourneyScreen() {
     };
   }, []);
 
-  const mins = Math.floor(elapsed / 60);
-  const secs = elapsed % 60;
+  const clock = formatElapsed(elapsed);
+  // Average speed once there is enough signal to be meaningful.
+  const avgSpeed = elapsed >= 30 && distance > 0.05 ? distance / (elapsed / 3600) : null;
 
   return (
-    <SafeAreaView style={styles.container} edges={["bottom"]}>
-      <View style={styles.inner}>
-        {error ? <Text style={styles.error}>{error}</Text> : null}
+    <Screen edges={["top"]}>
+      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+        <ScreenHeader
+          title="Drive"
+          subtitle={tracking ? "Journey mode is on" : "Track your route, cost and live alerts"}
+          right={
+            tracking ? (
+              <IconButton
+                icon={muted ? "volume-mute-outline" : "volume-high-outline"}
+                accessibilityLabel={muted ? "Turn voice alerts on" : "Turn voice alerts off"}
+                variant={muted ? "surface" : "accent"}
+                onPress={() => setMuted((m) => !m)}
+              />
+            ) : null
+          }
+        />
 
+        {error ? <Banner tone="danger" icon="alert-circle-outline" message={error} /> : null}
         {alert ? (
-          <View style={styles.alertBanner}>
-            <Ionicons name="alert-circle" size={20} color="#92400e" />
-            <Text style={styles.alertText}>{alert}</Text>
+          <Banner tone="warning" icon="warning-outline" title="Heads up" message={alert} />
+        ) : null}
+
+        {tracking ? (
+          <View style={styles.statusRow}>
+            <View style={styles.recDot} />
+            <Text variant="subheadStrong">Recording</Text>
+            <Pill
+              label={background ? "Background" : "Foreground only"}
+              tone={background ? "accent" : "warning"}
+              icon={background ? "lock-closed-outline" : "phone-portrait-outline"}
+            />
           </View>
         ) : null}
 
-        <View style={styles.statsRow}>
-          <Stat value={distance.toFixed(2)} unit="km" label="Distance" />
-          <Stat value={`${mins}:${String(secs).padStart(2, "0")}`} unit="" label="Time" />
-        </View>
-
-        <View style={styles.pulseWrap}>
+        <View style={styles.dialWrap}>
           {tracking ? (
-            <Animated.View
-              pointerEvents="none"
-              style={[
-                styles.pulseGlow,
-                {
-                  opacity: pulse.interpolate({ inputRange: [0, 1], outputRange: [0.35, 0] }),
-                  transform: [
-                    { scale: pulse.interpolate({ inputRange: [0, 1], outputRange: [1, 1.45] }) },
-                  ],
-                },
-              ]}
-            />
-          ) : null}
-          {tracking ? (
-            <LinearGradient
-              colors={gradients.primary}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={styles.pulse}
-            >
-              <Ionicons name="radio" size={30} color="#fff" />
-              <Text style={styles.pulseTextOn}>Recording</Text>
-            </LinearGradient>
+            <>
+              <Animated.View
+                style={[
+                  styles.glow,
+                  {
+                    opacity: pulse.interpolate({ inputRange: [0, 1], outputRange: [0.35, 0] }),
+                    transform: [
+                      { scale: pulse.interpolate({ inputRange: [0, 1], outputRange: [1, 1.3] }) },
+                    ],
+                  },
+                ]}
+              />
+              <View style={styles.dial} accessible accessibilityLabel={`Elapsed time ${clock}`}>
+                <Text variant="overline" tone="tertiary">
+                  Elapsed
+                </Text>
+                <Text variant={elapsed >= 3600 ? "display" : "hero"} tabular numberOfLines={1}>
+                  {clock}
+                </Text>
+              </View>
+            </>
           ) : (
-            <View style={styles.pulse}>
-              <Ionicons name="car-sport-outline" size={34} color={colors.primary} />
-              <Text style={styles.pulseText}>Ready</Text>
-            </View>
+            <>
+              <View style={[styles.halo, styles.haloOuter]} />
+              <View style={[styles.halo, styles.haloInner]} />
+              <Pressable
+                onPress={() => void start()}
+                disabled={starting}
+                accessibilityRole="button"
+                accessibilityLabel="Start drive"
+                accessibilityState={{ busy: starting }}
+                style={({ pressed }) => [styles.startBtn, pressed && styles.pressed]}
+              >
+                {starting ? (
+                  <ActivityIndicator color={t.color.onAccent} size="large" />
+                ) : (
+                  <>
+                    <Ionicons name="play" size={46} color={t.color.onAccent} />
+                    <Text variant="title3" tone="onAccent">
+                      Start drive
+                    </Text>
+                  </>
+                )}
+              </Pressable>
+            </>
           )}
         </View>
 
         {tracking ? (
-          <Pressable style={styles.muteToggle} onPress={() => setMuted((m) => !m)}>
-            <Ionicons
-              name={muted ? "volume-mute-outline" : "volume-high-outline"}
-              size={16}
-              color={muted ? colors.textMuted : colors.primary}
+          <>
+            <View style={styles.statsRow}>
+              <Stat
+                label="Distance"
+                value={distance.toFixed(2)}
+                unit="km"
+                icon="navigate-outline"
+                category="routine"
+              />
+              <Stat
+                label="Avg speed"
+                value={avgSpeed != null ? String(Math.round(avgSpeed)) : "--"}
+                unit="km/h"
+                icon="speedometer-outline"
+                category="fuel"
+              />
+            </View>
+            <Button
+              label="End drive"
+              icon="stop"
+              variant="danger"
+              onPress={() => void stop()}
+              loading={stopping}
             />
-            <Text style={[styles.muteText, !muted && { color: colors.primary }]}>
-              {muted ? "Voice alerts: off" : "Voice alerts: on"}
-            </Text>
-          </Pressable>
-        ) : null}
-
-        {!tracking ? (
-          <Button label="Start drive" onPress={() => void start()} loading={starting} />
+          </>
         ) : (
-          <Button
-            label="End drive"
-            variant="danger"
-            onPress={() => void stop()}
-            loading={stopping}
-          />
+          <Card>
+            <Text variant="subheadStrong" tone="secondary">
+              Spoken alerts while you drive
+            </Text>
+            <View style={styles.features}>
+              {FEATURES.map((f) => (
+                <View key={f.label} style={styles.feature}>
+                  <IconWell icon={f.icon} category={f.category} size={34} />
+                  <Text variant="subheadStrong" style={styles.flex}>
+                    {f.label}
+                  </Text>
+                </View>
+              ))}
+            </View>
+          </Card>
         )}
 
-        <Text style={styles.note}>
+        <Text variant="footnote" tone="tertiary" align="center" style={styles.note}>
           {tracking
             ? background
-              ? "Recording in the background - your route keeps tracking with the screen off. Voice alerts play while the app is open."
+              ? "Recording in the background, so your route keeps tracking with the screen off. Voice alerts play while the app is open."
               : "Recording in the foreground. Allow background location to keep tracking with the screen off."
-            : "Journey Mode tracks your route and gives spoken alerts for ERP gantries, traffic, weather and fuel as you drive."}
+            : "Alerts are spoken aloud, so your eyes stay on the road."}
         </Text>
-      </View>
-    </SafeAreaView>
+      </ScrollView>
+    </Screen>
   );
 }
 
-function Stat({ value, unit, label }: { value: string; unit: string; label: string }) {
-  return (
-    <View style={styles.stat}>
-      <Text style={styles.statValue}>
-        {value}
-        {unit ? <Text style={styles.statUnit}> {unit}</Text> : null}
-      </Text>
-      <Text style={styles.statLabel}>{label}</Text>
-    </View>
-  );
-}
+const DIAL = 232;
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#f5f7fb" },
-  inner: { flex: 1, padding: 24, gap: 24, justifyContent: "center" },
-  statsRow: { flexDirection: "row", gap: 16 },
-  stat: {
-    flex: 1,
-    backgroundColor: "#ffffff",
-    borderColor: "#e4e9f2",
-    borderWidth: 1,
-    borderRadius: 14,
-    padding: 18,
-    alignItems: "center",
-  },
-  statValue: { color: "#0f172a", fontSize: 30, fontWeight: "800" },
-  statUnit: { color: "#5b6b86", fontSize: 16, fontWeight: "600" },
-  statLabel: { color: "#5b6b86", fontSize: 13, marginTop: 4 },
-  pulseWrap: { alignItems: "center", justifyContent: "center", height: 200 },
-  pulseGlow: {
+const useStyles = makeStyles((t) => ({
+  flex: { flex: 1, minWidth: 0 },
+  content: { flexGrow: 1, padding: space.xl, paddingTop: space.md, gap: space.lg },
+  pressed: { opacity: 0.9, transform: [{ scale: 0.97 }] },
+
+  statusRow: { flexDirection: "row", alignItems: "center", gap: space.sm },
+  recDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: t.color.dangerSolid },
+
+  // Grows to fill the screen so the dial sits centered above the card.
+  dialWrap: { flex: 1, minHeight: 300, alignItems: "center", justifyContent: "center" },
+  glow: {
     position: "absolute",
-    width: 160,
-    height: 160,
-    borderRadius: 80,
-    backgroundColor: "#2563eb",
+    pointerEvents: "none",
+    width: DIAL,
+    height: DIAL,
+    borderRadius: DIAL / 2,
+    backgroundColor: t.color.accent,
   },
-  pulse: {
-    width: 160,
-    height: 160,
-    borderRadius: 80,
-    backgroundColor: "#ffffff",
-    borderColor: "#e4e9f2",
-    borderWidth: 2,
+  dial: {
+    width: DIAL,
+    height: DIAL,
+    borderRadius: DIAL / 2,
+    borderWidth: 3,
+    borderColor: t.color.accent,
+    backgroundColor: t.color.surface,
     alignItems: "center",
     justifyContent: "center",
-    gap: 6,
-    ...shadow,
-    shadowOpacity: 0.2,
-    shadowColor: "#4338ca",
+    paddingHorizontal: space.lg,
   },
-  pulseText: { color: "#0f172a", fontSize: 16, fontWeight: "700" },
-  pulseTextOn: { color: "#fff", fontSize: 16, fontWeight: "800" },
-  alertBanner: {
-    flexDirection: "row",
+  halo: { position: "absolute", pointerEvents: "none", backgroundColor: t.color.accentSoft },
+  haloOuter: { width: 296, height: 296, borderRadius: 148, opacity: 0.55 },
+  haloInner: { width: 256, height: 256, borderRadius: 128 },
+  startBtn: {
+    width: 212,
+    height: 212,
+    borderRadius: 106,
+    backgroundColor: t.color.accent,
     alignItems: "center",
-    gap: 10,
-    backgroundColor: "#fef3c7",
-    borderColor: "#f59e0b",
-    borderWidth: 1,
-    borderRadius: 12,
-    padding: 14,
+    justifyContent: "center",
+    gap: space.xs,
   },
-  alertText: { color: "#92400e", fontSize: 15, fontWeight: "700", flex: 1 },
-  muteToggle: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    alignSelf: "center",
-    backgroundColor: "#ffffff",
-    borderColor: "#e4e9f2",
-    borderWidth: 1,
-    borderRadius: 10,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-  },
-  muteText: { color: "#5b6b86", fontSize: 13, fontWeight: "700" },
-  note: { color: "#94a3b8", fontSize: 12, textAlign: "center" },
-  error: { color: "#dc2626", textAlign: "center" },
-});
+
+  statsRow: { flexDirection: "row", gap: space.md },
+  features: { flexDirection: "row", flexWrap: "wrap", rowGap: space.md, marginTop: space.md },
+  feature: { width: "50%", flexDirection: "row", alignItems: "center", gap: space.sm },
+  note: { paddingHorizontal: space.lg, marginTop: "auto" },
+}));

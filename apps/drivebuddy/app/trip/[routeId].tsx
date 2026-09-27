@@ -1,79 +1,218 @@
 import { useEffect, useState } from "react";
-import { Image, ScrollView, StyleSheet, Text, View } from "react-native";
-import { Skeleton } from "@/components/skeleton";
-import { SafeAreaView } from "react-native-safe-area-context";
-import { useLocalSearchParams } from "expo-router";
+import { Image, ScrollView, StyleSheet, View } from "react-native";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import Svg, { Circle, Polyline } from "react-native-svg";
 import { api, type RouteDetail, type TripSummary } from "@/lib/api";
+import { confirmAction, notify } from "@/lib/dialog";
+import { dayLabel, driveName, formatDuration, formatTime, money } from "@/lib/format";
+import { shareTextFile } from "@/lib/share";
+import { makeStyles, useTheme } from "@/lib/theme-context";
+import { radius, space } from "@/lib/theme";
+import { Skeleton } from "@/components/skeleton";
+import { Button, Card, Divider, Screen, ScreenHeader, Text } from "@/components/ui";
+
+const MAP_HEIGHT = 240;
 
 export default function TripScreen() {
   const { routeId } = useLocalSearchParams<{ routeId: string }>();
+  const router = useRouter();
+  const t = useTheme();
+  const styles = useStyles();
   const [route, setRoute] = useState<RouteDetail | null>(null);
   const [trip, setTrip] = useState<TripSummary | null>(null);
   const [loading, setLoading] = useState(true);
+  const [busy, setBusy] = useState<"export" | "delete" | null>(null);
+  const [mapWidth, setMapWidth] = useState(0);
 
   useEffect(() => {
     void (async () => {
       try {
-        const [r, t] = await Promise.all([
+        const [r, tr] = await Promise.all([
           api.getRoute(routeId),
           api.getTrip(routeId).catch(() => null),
         ]);
         setRoute(r);
-        setTrip(t);
+        setTrip(tr);
       } finally {
         setLoading(false);
       }
     })();
   }, [routeId]);
 
+  async function onExport() {
+    if (!route) return;
+    try {
+      setBusy("export");
+      const gpx = await api.exportRouteGpx(route.id);
+      await shareTextFile(`${route.name || "DriveBuddy route"}.gpx`, gpx, "application/gpx+xml");
+    } catch (e) {
+      notify("Export failed", e instanceof Error ? e.message : "Please try again.");
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function onDelete() {
+    if (!route) return;
+    const ok = await confirmAction({
+      title: "Delete drive?",
+      message: "This permanently removes the route, its GPS trace and summary.",
+      confirmLabel: "Delete",
+      destructive: true,
+    });
+    if (!ok) return;
+    try {
+      setBusy("delete");
+      await api.deleteRoute(route.id);
+      if (router.canGoBack()) router.back();
+      else router.replace("/history");
+    } catch (e) {
+      notify("Delete failed", e instanceof Error ? e.message : "Please try again.");
+      setBusy(null);
+    }
+  }
+
   if (loading) {
     return (
-      <SafeAreaView style={styles.container} edges={["bottom"]}>
-        <View style={styles.inner}>
-          <Skeleton width="100%" height={220} radius={14} />
-          <View style={styles.statsRow}>
-            <Skeleton width="32%" height={64} radius={12} />
-            <Skeleton width="32%" height={64} radius={12} />
-            <Skeleton width="32%" height={64} radius={12} />
-          </View>
-          <Skeleton width="100%" height={150} radius={14} />
+      <Screen>
+        <View style={styles.content}>
+          <Skeleton width="60%" height={30} radius={10} />
+          <Skeleton width="100%" height={MAP_HEIGHT} radius={radius.lg} />
+          <Skeleton width="100%" height={84} radius={radius.lg} />
+          <Skeleton width="100%" height={200} radius={radius.lg} />
         </View>
-      </SafeAreaView>
+      </Screen>
     );
   }
 
+  const start = route ? new Date(route.startTime) : null;
+  const end = route?.endTime ? new Date(route.endTime) : null;
   const fuel = trip ? parseFloat(trip.fuelCost) : 0;
   const erp = trip ? parseFloat(trip.erpCost) : 0;
   const parking = trip ? parseFloat(trip.parkingCost) : 0;
   const total = fuel + erp + parking;
+  const costs = [
+    { label: "Fuel", value: fuel, color: t.category.fuel },
+    { label: "ERP", value: erp, color: t.category.erp },
+    { label: "Parking", value: parking, color: t.category.carpark },
+  ];
 
   return (
-    <SafeAreaView style={styles.container} edges={["bottom"]}>
-      <ScrollView contentContainerStyle={styles.inner}>
-        <RouteMap points={route?.points ?? []} />
+    <Screen>
+      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+        <ScreenHeader
+          eyebrow={start ? dayLabel(start) : undefined}
+          title={route?.name || (start ? driveName(start) : "Trip summary")}
+          subtitle={
+            start ? `${formatTime(start)}${end ? ` to ${formatTime(end)}` : ""}` : undefined
+          }
+        />
 
-        <View style={styles.statsRow}>
-          <Stat value={(route?.totalDistance ?? 0).toFixed(2)} unit="km" label="Distance" />
-          <Stat value={String(trip?.durationMin ?? 0)} unit="min" label="Duration" />
-          <Stat
-            value={Math.round(route?.averageSpeed ?? 0).toString()}
+        <View onLayout={(e) => setMapWidth(Math.round(e.nativeEvent.layout.width))}>
+          {mapWidth > 0 ? (
+            <RouteMap points={route?.points ?? []} width={mapWidth} height={MAP_HEIGHT} />
+          ) : (
+            <View style={[styles.map, { height: MAP_HEIGHT }]} />
+          )}
+        </View>
+
+        <Card style={styles.stats}>
+          <MiniStat value={(route?.totalDistance ?? 0).toFixed(2)} unit="km" label="Distance" />
+          <View style={styles.statDivider} />
+          <MiniStat value={trip ? formatDuration(trip.durationMin) : "--"} label="Duration" />
+          <View style={styles.statDivider} />
+          <MiniStat
+            value={String(Math.round(route?.averageSpeed ?? 0))}
             unit="km/h"
             label="Avg speed"
           />
+        </Card>
+
+        <Card>
+          <Text variant="subheadStrong" tone="secondary">
+            Trip cost
+          </Text>
+          <Text variant="display" tabular style={styles.total}>
+            {money(total)}
+          </Text>
+          <View style={styles.bar}>
+            {total > 0
+              ? costs
+                  .filter((c) => c.value > 0)
+                  .map((c) => (
+                    <View key={c.label} style={{ flex: c.value, backgroundColor: c.color }} />
+                  ))
+              : null}
+          </View>
+          {costs.map((c, i) => (
+            <View key={c.label}>
+              {i > 0 ? <Divider /> : null}
+              <View style={styles.costRow}>
+                <View style={[styles.swatch, { backgroundColor: c.color }]} />
+                <Text variant="callout" style={styles.flex}>
+                  {c.label}
+                </Text>
+                <Text variant="bodyStrong" tabular>
+                  {money(c.value)}
+                </Text>
+              </View>
+            </View>
+          ))}
+          {trip ? null : (
+            <Text variant="footnote" tone="tertiary" style={styles.pending}>
+              Summary still generating…
+            </Text>
+          )}
+        </Card>
+
+        <View style={styles.actions}>
+          <Button
+            label="Export GPX"
+            icon="share-outline"
+            variant="secondary"
+            size="md"
+            onPress={() => void onExport()}
+            loading={busy === "export"}
+            disabled={busy === "delete" || !route}
+            style={styles.flex}
+          />
+          <Button
+            label="Delete"
+            icon="trash-outline"
+            variant="dangerSoft"
+            size="md"
+            onPress={() => void onDelete()}
+            loading={busy === "delete"}
+            disabled={busy === "export" || !route}
+            style={styles.flex}
+          />
         </View>
 
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>Trip cost</Text>
-          <CostRow label="Fuel" value={fuel} />
-          <CostRow label="ERP" value={erp} />
-          <CostRow label="Parking" value={parking} />
-          <View style={styles.divider} />
-          <CostRow label="Total" value={total} bold />
-        </View>
-        {trip ? null : <Text style={styles.note}>Summary still generating…</Text>}
+        {!router.canGoBack() ? (
+          <Button label="Done" onPress={() => router.replace("/")} variant="primary" />
+        ) : null}
       </ScrollView>
-    </SafeAreaView>
+    </Screen>
+  );
+}
+
+function MiniStat({ value, unit, label }: { value: string; unit?: string; label: string }) {
+  const styles = useStyles();
+  return (
+    <View style={styles.miniStat}>
+      <Text variant="title3" tabular numberOfLines={1}>
+        {value}
+        {unit ? (
+          <Text variant="caption" tone="secondary">
+            {" "}
+            {unit}
+          </Text>
+        ) : null}
+      </Text>
+      <Text variant="caption" tone="tertiary">
+        {label}
+      </Text>
+    </View>
   );
 }
 
@@ -91,18 +230,23 @@ const worldY = (lat: number, z: number) => {
  * over it as an SVG overlay. Picks the zoom that fits the route, lays out the
  * covering tiles, and projects the points into the same pixel space.
  */
-function RouteMap({ points }: { points: { latitude: number; longitude: number }[] }) {
-  const W = 340;
-  const H = 220;
+function RouteMap({
+  points,
+  width: W,
+  height: H,
+}: {
+  points: { latitude: number; longitude: number }[];
+  width: number;
+  height: number;
+}) {
+  const t = useTheme();
+  const styles = useStyles();
   if (points.length < 2) {
     return (
-      <View
-        style={[
-          styles.map,
-          { width: W, height: H, justifyContent: "center", alignItems: "center" },
-        ]}
-      >
-        <Text style={styles.muted}>Not enough GPS points to draw the route.</Text>
+      <View style={[styles.map, styles.mapEmpty, { height: H }]}>
+        <Text variant="subhead" tone="tertiary">
+          Not enough GPS points to draw the route.
+        </Text>
       </View>
     );
   }
@@ -148,106 +292,104 @@ function RouteMap({ points }: { points: { latitude: number; longitude: number }[
     y: worldY(p.latitude, z) - originY,
   }));
   const polyline = screen.map((p) => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(" ");
-  const start = screen[0];
-  const end = screen[screen.length - 1];
+  const first = screen[0];
+  const last = screen[screen.length - 1];
 
   return (
-    <View style={[styles.map, { width: W, height: H }]}>
-      {tiles.map((t) => (
+    <View style={[styles.map, { height: H }]}>
+      {tiles.map((tile) => (
         <Image
-          key={t.key}
+          key={tile.key}
           source={{
-            uri: t.uri,
+            uri: tile.uri,
             headers: { "User-Agent": "DriveBuddy/1.0 (https://github.com/elleskay/drivebuddy)" },
           }}
-          style={{ position: "absolute", left: t.left, top: t.top, width: TILE, height: TILE }}
+          style={{
+            position: "absolute",
+            left: tile.left,
+            top: tile.top,
+            width: TILE,
+            height: TILE,
+          }}
         />
       ))}
       <Svg width={W} height={H} style={StyleSheet.absoluteFill}>
         <Polyline
           points={polyline}
           fill="none"
-          stroke="#1d4ed8"
-          strokeOpacity={0.35}
-          strokeWidth={8}
+          stroke={t.color.accent}
+          strokeWidth={10}
           strokeLinejoin="round"
           strokeLinecap="round"
         />
         <Polyline
           points={polyline}
           fill="none"
-          stroke="#2563eb"
-          strokeWidth={5}
+          stroke="#0B0C0E"
+          strokeWidth={4}
           strokeLinejoin="round"
           strokeLinecap="round"
         />
-        <Circle cx={start.x} cy={start.y} r={7} fill="#22c55e" stroke="#fff" strokeWidth={2} />
-        <Circle cx={end.x} cy={end.y} r={7} fill="#dc2626" stroke="#fff" strokeWidth={2} />
+        <Circle
+          cx={first.x}
+          cy={first.y}
+          r={7}
+          fill={t.color.accent}
+          stroke="#0B0C0E"
+          strokeWidth={2.5}
+        />
+        <Circle cx={last.x} cy={last.y} r={7} fill="#0B0C0E" stroke="#FFFFFF" strokeWidth={2.5} />
       </Svg>
-      <Text style={styles.mapTag}>© OpenStreetMap</Text>
+      <View style={styles.mapTag}>
+        <Text variant="caption" style={styles.mapTagText}>
+          © OpenStreetMap
+        </Text>
+      </View>
     </View>
   );
 }
 
-function Stat({ value, unit, label }: { value: string; unit: string; label: string }) {
-  return (
-    <View style={styles.stat}>
-      <Text style={styles.statValue}>
-        {value}
-        <Text style={styles.statUnit}> {unit}</Text>
-      </Text>
-      <Text style={styles.statLabel}>{label}</Text>
-    </View>
-  );
-}
-function CostRow({ label, value, bold }: { label: string; value: number; bold?: boolean }) {
-  return (
-    <View style={styles.costRow}>
-      <Text style={[styles.costLabel, bold && styles.bold]}>{label}</Text>
-      <Text style={[styles.costValue, bold && styles.bold]}>${value.toFixed(2)}</Text>
-    </View>
-  );
-}
+const useStyles = makeStyles((t) => ({
+  flex: { flex: 1 },
+  content: { padding: space.xl, paddingTop: space.xs, gap: space.lg },
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#f5f7fb" },
-  inner: { padding: 16, gap: 14 },
   map: {
-    backgroundColor: "#eef2f9",
-    borderColor: "#e4e9f2",
+    backgroundColor: t.color.surfaceMuted,
+    borderColor: t.color.border,
     borderWidth: 1,
-    borderRadius: 14,
+    borderRadius: radius.lg,
     overflow: "hidden",
-    alignSelf: "center",
   },
-  muted: { color: "#94a3b8", fontSize: 13 },
-  mapTag: { position: "absolute", bottom: 8, left: 12, color: "#94a3b8", fontSize: 11 },
-  statsRow: { flexDirection: "row", gap: 10 },
-  stat: {
-    flex: 1,
-    backgroundColor: "#ffffff",
-    borderColor: "#e4e9f2",
-    borderWidth: 1,
-    borderRadius: 12,
-    padding: 12,
-    alignItems: "center",
+  mapEmpty: { alignItems: "center", justifyContent: "center", padding: space.xl },
+  mapTag: {
+    position: "absolute",
+    bottom: 8,
+    left: 8,
+    backgroundColor: "rgba(255,255,255,0.85)",
+    borderRadius: radius.pill,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
   },
-  statValue: { color: "#0f172a", fontSize: 18, fontWeight: "800" },
-  statUnit: { color: "#5b6b86", fontSize: 11, fontWeight: "600" },
-  statLabel: { color: "#5b6b86", fontSize: 11, marginTop: 3 },
-  card: {
-    backgroundColor: "#ffffff",
-    borderColor: "#e4e9f2",
-    borderWidth: 1,
-    borderRadius: 14,
-    padding: 16,
-    gap: 8,
+  mapTagText: { color: "#3A3F47", fontSize: 10, lineHeight: 13 },
+
+  stats: { flexDirection: "row", alignItems: "center", paddingVertical: space.md },
+  miniStat: { flex: 1, alignItems: "center", gap: 2 },
+  statDivider: { width: 1, alignSelf: "stretch", backgroundColor: t.color.border },
+
+  total: { marginTop: space.xs },
+  bar: {
+    flexDirection: "row",
+    height: 10,
+    borderRadius: 5,
+    overflow: "hidden",
+    gap: 3,
+    backgroundColor: t.color.surfaceMuted,
+    marginTop: space.md,
+    marginBottom: space.sm,
   },
-  cardTitle: { color: "#0f172a", fontSize: 16, fontWeight: "800", marginBottom: 4 },
-  costRow: { flexDirection: "row", justifyContent: "space-between" },
-  costLabel: { color: "#5b6b86", fontSize: 15 },
-  costValue: { color: "#0f172a", fontSize: 15, fontWeight: "600" },
-  bold: { color: "#0f172a", fontWeight: "800", fontSize: 16 },
-  divider: { height: 1, backgroundColor: "#e4e9f2", marginVertical: 4 },
-  note: { color: "#94a3b8", fontSize: 12, textAlign: "center" },
-});
+  costRow: { flexDirection: "row", alignItems: "center", gap: space.md, paddingVertical: space.md },
+  swatch: { width: 10, height: 10, borderRadius: 3 },
+  pending: { marginTop: space.sm },
+
+  actions: { flexDirection: "row", gap: space.md },
+}));

@@ -1,20 +1,49 @@
 import { useCallback, useState } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { Pressable, ScrollView, View } from "react-native";
 import { useFocusEffect, useRouter, type Href } from "expo-router";
-import type { Ionicons } from "@expo/vector-icons";
-import { api, type Insights } from "@/lib/api";
+import { Ionicons } from "@expo/vector-icons";
+import { api, type Insights, type Recommendation } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
-import { Hero, NavCard } from "@/components/ui";
-import { accent, colors, spacing } from "@/lib/theme";
+import { REC_ICON, type IconName } from "@/lib/icons";
+import { makeStyles, useTheme } from "@/lib/theme-context";
+import { radius, space, withAlpha, type Category } from "@/lib/theme";
+import { RouteArt } from "@/components/route-art";
+import {
+  Avatar,
+  Card,
+  CountBadge,
+  IconButton,
+  IconWell,
+  Screen,
+  SectionHeader,
+  Text,
+} from "@/components/ui";
 
-type IoniconName = React.ComponentProps<typeof Ionicons>["name"];
+function greeting(): string {
+  const h = new Date().getHours();
+  if (h < 12) return "Good morning";
+  if (h < 18) return "Good afternoon";
+  return "Good evening";
+}
+
+/** "+2 vs last week" style comparison of this week against the previous one. */
+function delta(curr: number, prev: number, fmt: (n: number) => string) {
+  const d = curr - prev;
+  if (d === 0) return { icon: "remove" as const, text: "Same as last week" };
+  return {
+    icon: d > 0 ? ("trending-up" as const) : ("trending-down" as const),
+    text: `${d > 0 ? "+" : "-"}${fmt(Math.abs(d))} vs last week`,
+  };
+}
 
 export default function HomeScreen() {
-  const { user, signOut } = useAuth();
+  const { user } = useAuth();
   const router = useRouter();
+  const t = useTheme();
+  const styles = useStyles();
   const [unread, setUnread] = useState(0);
   const [insights, setInsights] = useState<Insights | null>(null);
+  const [tip, setTip] = useState<Recommendation | null>(null);
 
   useFocusEffect(
     useCallback(() => {
@@ -26,121 +55,250 @@ export default function HomeScreen() {
         .insights()
         .then(setInsights)
         .catch(() => undefined);
+      api
+        .listRecommendations()
+        .then((list) => setTip(list.find((r) => !r.dismissed) ?? null))
+        .catch(() => undefined);
     }, []),
   );
 
-  const tiles: {
-    title: string;
-    desc: string;
+  const week = insights?.last7 ?? { trips: 0, cost: 0 };
+  const prev = insights?.prev7 ?? { trips: 0, cost: 0 };
+
+  const shortcuts: {
+    label: string;
+    icon: IconName;
+    category: Category;
     route: Href;
-    icon: IoniconName;
-    tint: string;
     badge?: number;
   }[] = [
+    { label: "Insights", icon: "bulb-outline", category: "carpark", route: "/recommendations" },
+    { label: "Vehicles", icon: "car-outline", category: "fuel", route: "/vehicles" },
     {
-      title: "Recommendations",
-      desc: "Insights from your drives",
-      route: "/recommendations",
-      icon: "bulb-outline",
-      tint: accent.carpark,
-    },
-    {
-      title: "Notifications",
-      desc: "Alerts and trip summaries",
-      route: "/notifications",
+      label: "Alerts",
       icon: "notifications-outline",
-      tint: accent.traffic,
+      category: "traffic",
+      route: "/notifications",
       badge: unread,
     },
-    {
-      title: "My Vehicles",
-      desc: "Manage your vehicles",
-      route: "/vehicles",
-      icon: "car-outline",
-      tint: accent.fuel,
-    },
-    {
-      title: "Profile",
-      desc: "Your personal details",
-      route: "/profile",
-      icon: "person-outline",
-      tint: accent.weather,
-    },
-    {
-      title: "Settings",
-      desc: "App and account",
-      route: "/settings",
-      icon: "settings-outline",
-      tint: colors.textMuted,
-    },
+    { label: "Profile", icon: "person-outline", category: "weather", route: "/profile" },
   ];
 
   return (
-    <SafeAreaView style={styles.container} edges={["bottom"]}>
-      <ScrollView contentContainerStyle={styles.inner}>
-        <Hero
-          title={`Hi ${user?.fullName?.split(" ")[0] ?? "there"}`}
-          subtitle="Here's your week on the road"
-        >
-          <View style={styles.heroStats}>
-            <View style={styles.heroStat}>
-              <Text style={styles.heroNum}>{insights?.last7.trips ?? 0}</Text>
-              <Text style={styles.heroLabel}>drives this week</Text>
+    <Screen edges={["top"]}>
+      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+        <View style={styles.topBar}>
+          <Pressable
+            onPress={() => router.push("/settings")}
+            accessibilityRole="button"
+            accessibilityLabel="Account and settings"
+            style={styles.who}
+          >
+            <Avatar name={user?.fullName} size={46} />
+            <View style={styles.flex}>
+              <Text variant="footnote" tone="secondary">
+                {greeting()}
+              </Text>
+              <Text variant="title3" numberOfLines={1}>
+                {user?.fullName?.split(" ")[0] ?? "there"}
+              </Text>
             </View>
-            <View style={styles.heroDivider} />
-            <View style={styles.heroStat}>
-              <Text style={styles.heroNum}>${(insights?.last7.cost ?? 0).toFixed(0)}</Text>
-              <Text style={styles.heroLabel}>spent this week</Text>
-            </View>
-          </View>
-        </Hero>
-
-        <NavCard
-          title="Start a Drive"
-          desc="Track your route, distance and cost"
-          icon="car-sport-outline"
-          onPress={() => router.push("/journey")}
-          primary
-        />
-
-        <View style={styles.grid}>
-          {tiles.map((t) => (
-            <NavCard
-              key={t.title}
-              title={t.title}
-              desc={t.desc}
-              icon={t.icon}
-              tint={t.tint}
-              badge={t.badge}
-              onPress={() => router.push(t.route)}
-            />
-          ))}
+          </Pressable>
+          <IconButton
+            icon="notifications-outline"
+            accessibilityLabel={unread ? `Notifications, ${unread} unread` : "Notifications"}
+            badge={unread}
+            onPress={() => router.push("/notifications")}
+          />
         </View>
 
-        <Pressable style={styles.signOut} onPress={() => void signOut()}>
-          <Text style={styles.signOutText}>Sign out</Text>
+        <Pressable
+          onPress={() => router.push("/journey")}
+          accessibilityRole="button"
+          accessibilityLabel="Start a drive"
+          style={({ pressed }) => [styles.cta, pressed && styles.pressed]}
+        >
+          <RouteArt
+            road={withAlpha(t.color.onAccent, 0.07)}
+            lane={withAlpha(t.color.onAccent, 0.22)}
+            dot={t.color.onAccent}
+          />
+          <Text variant="overline" tone="onAccent" style={styles.ctaEyebrow}>
+            Journey mode
+          </Text>
+          <Text variant="display" tone="onAccent" style={styles.ctaTitle}>
+            Start a{"\n"}drive
+          </Text>
+          <View style={styles.ctaFooter}>
+            <Text variant="subhead" tone="onAccent" style={styles.ctaSub}>
+              Live route, trip cost and spoken ERP, traffic and weather alerts.
+            </Text>
+            <View style={styles.ctaGo}>
+              <Ionicons name="arrow-forward" size={24} color={t.color.accent} />
+            </View>
+          </View>
         </Pressable>
-        <Text style={styles.tagline}>Drive smart. Drive safe.</Text>
+
+        <SectionHeader
+          title="This week"
+          action={{ label: "History", onPress: () => router.push("/history") }}
+        />
+        <View style={styles.weekRow}>
+          <WeekStat
+            icon="car-sport-outline"
+            label={week.trips === 1 ? "drive" : "drives"}
+            value={String(week.trips)}
+            trend={delta(week.trips, prev.trips, String)}
+          />
+          <WeekStat
+            icon="wallet-outline"
+            label="spent"
+            value={`$${week.cost.toFixed(0)}`}
+            trend={delta(week.cost, prev.cost, (n) => `$${n.toFixed(0)}`)}
+          />
+        </View>
+
+        {tip ? (
+          <>
+            <SectionHeader
+              title="For you"
+              action={{ label: "All insights", onPress: () => router.push("/recommendations") }}
+            />
+            <Card
+              onPress={() => router.push("/recommendations")}
+              accessibilityLabel={`Recommendation: ${tip.title}`}
+              style={styles.tip}
+            >
+              <IconWell icon={REC_ICON[tip.category]} category={tip.category} size={44} />
+              <View style={styles.flex}>
+                <Text variant="bodyStrong">{tip.title}</Text>
+                <Text variant="subhead" tone="secondary" numberOfLines={3}>
+                  {tip.body}
+                </Text>
+              </View>
+            </Card>
+          </>
+        ) : null}
+
+        <SectionHeader title="Shortcuts" />
+        <View style={styles.shortcuts}>
+          {shortcuts.map((s) => (
+            <Pressable
+              key={s.label}
+              onPress={() => router.push(s.route)}
+              accessibilityRole="button"
+              accessibilityLabel={s.badge ? `${s.label}, ${s.badge} unread` : s.label}
+              style={({ pressed }) => [styles.shortcut, pressed && styles.pressed]}
+            >
+              <View>
+                <IconWell icon={s.icon} category={s.category} size={44} />
+                {s.badge ? <CountBadge count={s.badge} style={styles.shortcutBadge} /> : null}
+              </View>
+              <Text variant="caption" tone="secondary" numberOfLines={1}>
+                {s.label}
+              </Text>
+            </Pressable>
+          ))}
+        </View>
       </ScrollView>
-    </SafeAreaView>
+    </Screen>
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.bg },
-  inner: { padding: spacing.lg, gap: spacing.md },
-  heroStats: { flexDirection: "row", alignItems: "center", marginTop: spacing.md },
-  heroStat: { flex: 1 },
-  heroNum: { color: "#fff", fontSize: 24, fontWeight: "800" },
-  heroLabel: { color: "rgba(255,255,255,0.85)", fontSize: 12, marginTop: 2 },
-  heroDivider: {
-    width: 1,
-    height: 36,
-    backgroundColor: "rgba(255,255,255,0.25)",
-    marginHorizontal: spacing.lg,
+function WeekStat({
+  icon,
+  label,
+  value,
+  trend,
+}: {
+  icon: IconName;
+  label: string;
+  value: string;
+  trend: { icon: IconName; text: string };
+}) {
+  const t = useTheme();
+  const styles = useStyles();
+  return (
+    <View style={styles.weekStat}>
+      <Ionicons name={icon} size={20} color={t.color.textSecondary} />
+      <View style={styles.weekValueRow}>
+        <Text variant="display" tabular>
+          {value}
+        </Text>
+        <Text variant="subhead" tone="secondary">
+          {label}
+        </Text>
+      </View>
+      <View style={styles.trend}>
+        <Ionicons name={trend.icon} size={14} color={t.color.textTertiary} />
+        <Text variant="caption" tone="tertiary" numberOfLines={1}>
+          {trend.text}
+        </Text>
+      </View>
+    </View>
+  );
+}
+
+const useStyles = makeStyles((t) => ({
+  flex: { flex: 1, minWidth: 0 },
+  content: { padding: space.xl, paddingTop: space.md, gap: space.lg },
+  pressed: { opacity: 0.9, transform: [{ scale: 0.985 }] },
+
+  topBar: { flexDirection: "row", alignItems: "center", gap: space.md },
+  who: { flex: 1, flexDirection: "row", alignItems: "center", gap: space.md },
+
+  cta: {
+    backgroundColor: t.color.accent,
+    borderRadius: radius.xl,
+    padding: space.xxl,
+    paddingTop: space.xl,
+    overflow: "hidden",
+    minHeight: 216,
   },
-  grid: { gap: spacing.md },
-  signOut: { alignItems: "center", paddingVertical: 14, marginTop: spacing.sm },
-  signOutText: { color: colors.danger, fontSize: 15, fontWeight: "600" },
-  tagline: { color: colors.textDim, fontSize: 13, textAlign: "center", paddingBottom: spacing.sm },
-});
+  ctaEyebrow: { opacity: 0.6 },
+  ctaTitle: { marginTop: space.sm },
+  ctaFooter: {
+    flexDirection: "row",
+    alignItems: "flex-end",
+    gap: space.lg,
+    marginTop: "auto",
+    paddingTop: space.lg,
+  },
+  ctaSub: { flex: 1, opacity: 0.72 },
+  ctaGo: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: t.color.onAccent,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
+  weekRow: { flexDirection: "row", gap: space.md },
+  weekStat: {
+    flex: 1,
+    backgroundColor: t.color.surface,
+    borderColor: t.color.border,
+    borderWidth: 1,
+    borderRadius: radius.lg,
+    padding: space.lg,
+    gap: space.sm,
+  },
+  weekValueRow: { flexDirection: "row", alignItems: "baseline", gap: 6, marginTop: space.xs },
+  trend: { flexDirection: "row", alignItems: "center", gap: 4 },
+
+  tip: { flexDirection: "row", alignItems: "flex-start", gap: space.md },
+
+  shortcuts: { flexDirection: "row", gap: space.md },
+  shortcut: {
+    flex: 1,
+    alignItems: "center",
+    gap: space.sm,
+    backgroundColor: t.color.surface,
+    borderColor: t.color.border,
+    borderWidth: 1,
+    borderRadius: radius.lg,
+    paddingVertical: space.lg,
+  },
+  shortcutBadge: { position: "absolute", top: -6, right: -8 },
+}));

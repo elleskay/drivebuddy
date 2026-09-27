@@ -1,9 +1,6 @@
-import { useCallback, useEffect, useState } from "react";
-import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
+import { useCallback, useEffect, useState, type ReactNode } from "react";
+import { RefreshControl, ScrollView, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { SkeletonList } from "@/components/skeleton";
-import { SafeAreaView } from "react-native-safe-area-context";
-import { accent, radius, shadow, spacing } from "@/lib/theme";
 import {
   api,
   type CarparkItem,
@@ -13,8 +10,20 @@ import {
   type TrafficItem,
   type WeatherItem,
 } from "@/lib/api";
-
-type IoniconName = React.ComponentProps<typeof Ionicons>["name"];
+import { weatherVisual, type IconName } from "@/lib/icons";
+import { makeStyles, useTheme } from "@/lib/theme-context";
+import { radius, space, type Category } from "@/lib/theme";
+import { SkeletonList } from "@/components/skeleton";
+import {
+  Card,
+  IconWell,
+  Pill,
+  Screen,
+  ScreenHeader,
+  Segmented,
+  Text,
+  webBreak,
+} from "@/components/ui";
 
 interface Data {
   weather: Feed<WeatherItem[]>;
@@ -24,18 +33,20 @@ interface Data {
   erp: Feed<ErpItem[]>;
 }
 
-const REFRESH_OPTIONS: { label: string; ms: number }[] = [
-  { label: "Off", ms: 0 },
-  { label: "30s", ms: 30_000 },
-  { label: "1m", ms: 60_000 },
-  { label: "2m", ms: 120_000 },
-];
+const REFRESH_OPTIONS = [
+  { label: "Off", value: 0 },
+  { label: "30s", value: 30_000 },
+  { label: "1m", value: 60_000 },
+  { label: "2m", value: 120_000 },
+] as const;
 
 export default function DashboardScreen() {
+  const t = useTheme();
+  const styles = useStyles();
   const [data, setData] = useState<Data | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [intervalMs, setIntervalMs] = useState(60_000); // configurable auto-refresh
+  const [intervalMs, setIntervalMs] = useState<number>(60_000); // configurable auto-refresh
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
 
   const load = useCallback(async () => {
@@ -74,216 +85,308 @@ export default function DashboardScreen() {
 
   if (loading) {
     return (
-      <View style={styles.container}>
+      <Screen edges={["top"]}>
         <SkeletonList />
-      </View>
+      </Screen>
     );
   }
 
+  const weather = data?.weather.data ?? [];
+  const petrol = [...(data?.petrol.data ?? [])].sort((a, b) => a.price - b.price);
+  const traffic = data?.traffic.data ?? [];
+  const carparks = data?.carpark.data ?? [];
+  const erp = data?.erp.data ?? [];
+
   return (
-    <SafeAreaView style={styles.container} edges={["bottom"]}>
+    <Screen edges={["top"]}>
       <ScrollView
-        contentContainerStyle={styles.inner}
+        contentContainerStyle={styles.content}
+        showsVerticalScrollIndicator={false}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#2563eb" />
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={t.color.accentInk}
+            colors={[t.color.onAccent]}
+            progressBackgroundColor={t.color.accent}
+          />
         }
       >
-        <View style={styles.refreshBar}>
-          <Text style={styles.refreshLabel}>
-            Auto-refresh
-            {lastUpdated
-              ? ` · updated ${lastUpdated.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" })}`
-              : ""}
-          </Text>
-          <View style={styles.chips}>
-            {REFRESH_OPTIONS.map((o) => (
-              <Pressable
-                key={o.label}
-                onPress={() => setIntervalMs(o.ms)}
-                style={[styles.chip, intervalMs === o.ms && styles.chipActive]}
-              >
-                <Text style={[styles.chipText, intervalMs === o.ms && styles.chipTextActive]}>
-                  {o.label}
+        <ScreenHeader
+          title="Live"
+          subtitle="Singapore road conditions right now"
+          right={
+            lastUpdated ? (
+              <View style={styles.live}>
+                <View style={styles.liveDot} />
+                <Text variant="caption" tone="secondary" tabular>
+                  {lastUpdated.toLocaleTimeString(undefined, {
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  })}
                 </Text>
-              </Pressable>
-            ))}
-          </View>
+              </View>
+            ) : null
+          }
+        />
+
+        <View style={styles.refreshRow}>
+          <Text variant="subheadStrong" tone="secondary">
+            Auto-refresh
+          </Text>
+          <Segmented
+            options={REFRESH_OPTIONS}
+            value={intervalMs}
+            onChange={setIntervalMs}
+            style={styles.segment}
+          />
         </View>
 
-        <Card
+        <FeedCard
           title="Weather"
-          subtitle="Next 2 hours · data.gov.sg"
+          caption="Next 2 hours · NEA"
           icon="partly-sunny-outline"
-          tint={accent.weather}
+          category="weather"
         >
-          {data?.weather.data
-            .slice(0, 6)
-            .map((w) => <Row key={w.area} left={w.area} right={w.forecast} />) ?? null}
-          {!data?.weather.data.length ? <Muted>No data</Muted> : null}
-        </Card>
+          {weather.length ? (
+            <View style={styles.weatherGrid}>
+              {weather.slice(0, 6).map((w) => {
+                const v = weatherVisual(w.forecast);
+                return (
+                  <View key={w.area} style={styles.weatherTile}>
+                    <Ionicons name={v.icon} size={22} color={t.category[v.category]} />
+                    <Text variant="subheadStrong" numberOfLines={1}>
+                      {w.area}
+                    </Text>
+                    <Text variant="caption" tone="secondary" numberOfLines={2}>
+                      {w.forecast}
+                    </Text>
+                  </View>
+                );
+              })}
+            </View>
+          ) : (
+            <Muted>No forecast available.</Muted>
+          )}
+        </FeedCard>
 
-        <Card
-          title="Petrol (95)"
-          subtitle="Indicative prices"
+        <FeedCard
+          title="Petrol prices"
+          caption="95 octane · per litre"
           icon="water-outline"
-          tint={accent.fuel}
+          category="fuel"
         >
-          {data?.petrol.data.map((p) => (
-            <Row key={p.brand} left={`${p.brand} ${p.product}`} right={`$${p.price.toFixed(2)}`} />
-          ))}
-        </Card>
+          {petrol.length ? (
+            petrol.map((p, i) => (
+              <FeedRow
+                key={p.brand}
+                divider={i > 0}
+                title={p.brand}
+                subtitle={p.product}
+                value={`$${p.price.toFixed(2)}`}
+                badge={i === 0 && petrol.length > 1 ? "Cheapest" : undefined}
+              />
+            ))
+          ) : (
+            <Muted>No prices available.</Muted>
+          )}
+        </FeedCard>
 
-        <Card
+        <FeedCard
           title="Traffic incidents"
-          subtitle="LTA DataMall"
+          caption="LTA DataMall"
           icon="warning-outline"
-          tint={accent.traffic}
+          category="traffic"
+          count={data?.traffic.keyRequired ? undefined : traffic.length}
         >
           {data?.traffic.keyRequired ? (
             <Muted>Add an LTA DataMall key to enable live traffic.</Muted>
-          ) : data?.traffic.data.length ? (
-            data.traffic.data
-              .slice(0, 6)
-              .map((t, i) => <Row key={i} left={t.type} right={t.message} />)
+          ) : traffic.length ? (
+            traffic.slice(0, 6).map((item, i) => (
+              <View key={i} style={[styles.incident, i > 0 && styles.divider]}>
+                <Pill label={item.type} tone="warning" />
+                <Text variant="subhead" style={webBreak}>
+                  {item.message}
+                </Text>
+              </View>
+            ))
           ) : (
-            <Muted>No current incidents.</Muted>
+            <Muted>No incidents reported. Clear roads.</Muted>
           )}
-        </Card>
+        </FeedCard>
 
-        <Card
-          title="Carpark availability"
-          subtitle="LTA DataMall"
+        <FeedCard
+          title="Carparks"
+          caption="Available lots · LTA DataMall"
           icon="business-outline"
-          tint={accent.carpark}
+          category="carpark"
         >
           {data?.carpark.keyRequired ? (
             <Muted>Add an LTA DataMall key to enable carpark data.</Muted>
-          ) : data?.carpark.data.length ? (
-            data.carpark.data
+          ) : carparks.length ? (
+            carparks
               .slice(0, 6)
-              .map((c) => (
-                <Row key={c.id} left={c.development || c.area} right={`${c.availableLots} lots`} />
-              ))
-          ) : (
-            <Muted>No data.</Muted>
-          )}
-        </Card>
-
-        <Card title="ERP rates" subtitle="LTA DataMall" icon="card-outline" tint={accent.erp}>
-          {data?.erp.keyRequired ? (
-            <Muted>Add an LTA DataMall key to enable ERP rates.</Muted>
-          ) : data?.erp.data.length ? (
-            data.erp.data
-              .slice(0, 6)
-              .map((e, i) => (
-                <Row
-                  key={i}
-                  left={`${e.zone} (${e.startTime}-${e.endTime})`}
-                  right={`$${e.chargeAmount.toFixed(2)}`}
+              .map((c, i) => (
+                <FeedRow
+                  key={c.id}
+                  divider={i > 0}
+                  title={c.development || c.area}
+                  value={String(c.availableLots)}
+                  dot={
+                    c.availableLots < 20
+                      ? t.color.danger
+                      : c.availableLots < 60
+                        ? t.color.warning
+                        : t.color.success
+                  }
                 />
               ))
           ) : (
-            <Muted>No active charges now.</Muted>
+            <Muted>No carpark data.</Muted>
           )}
-        </Card>
+        </FeedCard>
+
+        <FeedCard title="ERP rates" caption="LTA DataMall" icon="card-outline" category="erp">
+          {data?.erp.keyRequired ? (
+            <Muted>Add an LTA DataMall key to enable ERP rates.</Muted>
+          ) : erp.length ? (
+            erp
+              .slice(0, 6)
+              .map((e, i) => (
+                <FeedRow
+                  key={i}
+                  divider={i > 0}
+                  title={e.zone}
+                  subtitle={`${e.startTime} to ${e.endTime}`}
+                  value={`$${e.chargeAmount.toFixed(2)}`}
+                />
+              ))
+          ) : (
+            <Muted>No active charges right now.</Muted>
+          )}
+        </FeedCard>
       </ScrollView>
-    </SafeAreaView>
+    </Screen>
   );
 }
 
-function Card({
+function FeedCard({
   title,
-  subtitle,
+  caption,
   icon,
-  tint,
+  category,
+  count,
   children,
 }: {
   title: string;
-  subtitle: string;
-  icon: IoniconName;
-  tint: string;
-  children: React.ReactNode;
+  caption: string;
+  icon: IconName;
+  category: Category;
+  count?: number;
+  children: ReactNode;
 }) {
+  const styles = useStyles();
   return (
-    <View style={styles.card}>
+    <Card>
       <View style={styles.cardHead}>
-        <View style={[styles.cardIcon, { backgroundColor: tint + "1a" }]}>
-          <Ionicons name={icon} size={20} color={tint} />
+        <IconWell icon={icon} category={category} size={38} />
+        <View style={styles.flex}>
+          <Text variant="bodyStrong">{title}</Text>
+          <Text variant="caption" tone="tertiary">
+            {caption}
+          </Text>
         </View>
-        <View style={{ flex: 1 }}>
-          <Text style={styles.cardTitle}>{title}</Text>
-          <Text style={styles.cardSub}>{subtitle}</Text>
-        </View>
+        {count ? <Pill label={String(count)} tone="warning" /> : null}
       </View>
-      <View style={styles.cardBody}>{children}</View>
-    </View>
+      <View>{children}</View>
+    </Card>
   );
-}
-function Row({ left, right }: { left: string; right: string }) {
-  return (
-    <View style={styles.rowItem}>
-      <Text style={styles.rowLeft} numberOfLines={1}>
-        {left}
-      </Text>
-      <Text style={styles.rowRight} numberOfLines={2}>
-        {right}
-      </Text>
-    </View>
-  );
-}
-function Muted({ children }: { children: React.ReactNode }) {
-  return <Text style={styles.muted}>{children}</Text>;
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#f5f7fb" },
-  inner: { padding: 16, gap: 12 },
-  card: {
-    backgroundColor: "#ffffff",
-    borderColor: "#e4e9f2",
-    borderWidth: 1,
-    borderRadius: 14,
-    padding: 16,
-    ...shadow,
-  },
-  cardHead: { flexDirection: "row", alignItems: "center", gap: spacing.md, marginBottom: 10 },
-  cardIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: radius.md,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  cardTitle: { color: "#0f172a", fontSize: 17, fontWeight: "800" },
-  cardSub: { color: "#94a3b8", fontSize: 12, marginTop: 1 },
-  cardBody: { gap: 6 },
-  rowItem: { flexDirection: "row", justifyContent: "space-between", gap: 12 },
-  rowLeft: { color: "#5b6b86", fontSize: 14, flexShrink: 1 },
-  rowRight: {
-    color: "#0f172a",
-    fontSize: 14,
-    fontWeight: "600",
-    textAlign: "right",
-    flexShrink: 1,
-  },
-  muted: { color: "#94a3b8", fontSize: 13, fontStyle: "italic" },
-  refreshBar: {
+function FeedRow({
+  title,
+  subtitle,
+  value,
+  badge,
+  dot,
+  divider,
+}: {
+  title: string;
+  subtitle?: string;
+  value: string;
+  badge?: string;
+  dot?: string;
+  divider?: boolean;
+}) {
+  const styles = useStyles();
+  return (
+    <View style={[styles.row, divider && styles.divider]}>
+      <View style={styles.flex}>
+        <Text variant="callout" numberOfLines={1}>
+          {title}
+        </Text>
+        {subtitle ? (
+          <Text variant="caption" tone="tertiary" numberOfLines={1}>
+            {subtitle}
+          </Text>
+        ) : null}
+      </View>
+      {badge ? <Pill label={badge} tone="accent" style={styles.badge} /> : null}
+      {dot ? <View style={[styles.dot, { backgroundColor: dot }]} /> : null}
+      <Text variant="bodyStrong" tabular>
+        {value}
+      </Text>
+    </View>
+  );
+}
+
+function Muted({ children }: { children: ReactNode }) {
+  return (
+    <Text variant="subhead" tone="tertiary">
+      {children}
+    </Text>
+  );
+}
+
+const useStyles = makeStyles((t) => ({
+  flex: { flex: 1, minWidth: 0 },
+  content: { padding: space.xl, paddingTop: space.md, gap: space.lg },
+
+  live: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
-    gap: 8,
-  },
-  refreshLabel: { color: "#94a3b8", fontSize: 12, flexShrink: 1 },
-  chips: { flexDirection: "row", gap: 6 },
-  chip: {
+    gap: 6,
+    backgroundColor: t.color.surface,
+    borderColor: t.color.border,
+    borderWidth: 1,
+    borderRadius: radius.pill,
     paddingHorizontal: 10,
     paddingVertical: 5,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: "#e4e9f2",
-    backgroundColor: "#ffffff",
   },
-  chipActive: { backgroundColor: "#2563eb", borderColor: "#2563eb" },
-  chipText: { color: "#5b6b86", fontSize: 12, fontWeight: "700" },
-  chipTextActive: { color: "#fff" },
-});
+  liveDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: t.color.success },
+  refreshRow: { flexDirection: "row", alignItems: "center", gap: space.md },
+  segment: { flex: 1 },
+
+  cardHead: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: space.md,
+    marginBottom: space.md,
+  },
+
+  weatherGrid: { flexDirection: "row", flexWrap: "wrap", gap: space.sm },
+  weatherTile: {
+    flexBasis: "48%",
+    flexGrow: 1,
+    backgroundColor: t.color.surfaceMuted,
+    borderRadius: radius.md,
+    padding: space.md,
+    gap: 2,
+  },
+
+  row: { flexDirection: "row", alignItems: "center", gap: space.md, paddingVertical: space.md },
+  divider: { borderTopWidth: 1, borderTopColor: t.color.border },
+  dot: { width: 8, height: 8, borderRadius: 4 },
+  badge: { alignSelf: "center" },
+  incident: { gap: 6, paddingVertical: space.md },
+}));

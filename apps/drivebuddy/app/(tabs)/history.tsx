@@ -1,23 +1,41 @@
-import { useCallback, useEffect, useState } from "react";
-import { Alert, FlatList, Pressable, Share, StyleSheet, Text, View } from "react-native";
+import { useCallback, useMemo, useState } from "react";
+import { Pressable, RefreshControl, SectionList, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { SkeletonList } from "@/components/skeleton";
-import { SafeAreaView } from "react-native-safe-area-context";
 import { useFocusEffect, useRouter } from "expo-router";
-import { accent, radius, shadow } from "@/lib/theme";
 import { api, type DrivingRoute } from "@/lib/api";
+import { dayLabel, driveName, formatDuration, formatTime, minutesBetween } from "@/lib/format";
+import { makeStyles, useTheme } from "@/lib/theme-context";
+import { radius, space } from "@/lib/theme";
+import { SkeletonList } from "@/components/skeleton";
+import { EmptyState, IconWell, Screen, ScreenHeader, Text } from "@/components/ui";
+
+/** Newest first, grouped under "Today", "Yesterday", "Mon, 22 Sep"... */
+function groupByDay(routes: DrivingRoute[]) {
+  const sorted = [...routes].sort((a, b) => Date.parse(b.startTime) - Date.parse(a.startTime));
+  const sections: { title: string; data: DrivingRoute[] }[] = [];
+  for (const r of sorted) {
+    const title = dayLabel(new Date(r.startTime));
+    const last = sections[sections.length - 1];
+    if (last && last.title === title) last.data.push(r);
+    else sections.push({ title, data: [r] });
+  }
+  return sections;
+}
 
 export default function HistoryScreen() {
   const router = useRouter();
+  const t = useTheme();
+  const styles = useStyles();
   const [routes, setRoutes] = useState<DrivingRoute[]>([]);
   const [loading, setLoading] = useState(true);
-  const [busyId, setBusyId] = useState<string | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
 
   const load = useCallback(async () => {
     try {
       setRoutes((await api.listRoutes()).filter((r) => !r.isActive));
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   }, []);
 
@@ -26,136 +44,142 @@ export default function HistoryScreen() {
       void load();
     }, [load]),
   );
-  useEffect(() => {
-    void load();
-  }, [load]);
 
-  const onExport = useCallback(async (r: DrivingRoute) => {
-    try {
-      setBusyId(r.id);
-      const gpx = await api.exportRouteGpx(r.id);
-      // Core React Native Share sheet (no extra native module needed).
-      await Share.share({ title: `${r.name || "DriveBuddy route"}.gpx`, message: gpx });
-    } catch (e) {
-      Alert.alert("Export failed", e instanceof Error ? e.message : "Please try again.");
-    } finally {
-      setBusyId(null);
-    }
-  }, []);
-
-  const onDelete = useCallback((r: DrivingRoute) => {
-    const doDelete = async () => {
-      try {
-        setBusyId(r.id);
-        await api.deleteRoute(r.id);
-        setRoutes((prev) => prev.filter((x) => x.id !== r.id));
-      } catch (e) {
-        Alert.alert("Delete failed", e instanceof Error ? e.message : "Please try again.");
-      } finally {
-        setBusyId(null);
-      }
-    };
-    Alert.alert("Delete drive?", "This permanently removes the route, its GPS trace and summary.", [
-      { text: "Cancel", style: "cancel" },
-      { text: "Delete", style: "destructive", onPress: () => void doDelete() },
-    ]);
-  }, []);
+  const sections = useMemo(() => groupByDay(routes), [routes]);
+  const totalKm = routes.reduce((sum, r) => sum + r.totalDistance, 0);
 
   if (loading) {
     return (
-      <View style={styles.container}>
+      <Screen edges={["top"]}>
         <SkeletonList />
-      </View>
+      </Screen>
     );
   }
 
   return (
-    <SafeAreaView style={styles.container} edges={["bottom"]}>
-      <FlatList
-        data={routes}
+    <Screen edges={["top"]}>
+      <SectionList
+        sections={sections}
         keyExtractor={(r) => r.id}
-        contentContainerStyle={styles.list}
-        ListEmptyComponent={
-          <Text style={styles.empty}>No drives yet. Start one from Journey Mode.</Text>
+        contentContainerStyle={styles.content}
+        showsVerticalScrollIndicator={false}
+        stickySectionHeadersEnabled={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={() => {
+              setRefreshing(true);
+              void load();
+            }}
+            tintColor={t.color.accentInk}
+            colors={[t.color.onAccent]}
+            progressBackgroundColor={t.color.accent}
+          />
         }
-        renderItem={({ item }) => (
-          <View style={styles.row}>
-            <Pressable style={styles.info} onPress={() => router.push(`/trip/${item.id}`)}>
-              <View style={styles.routeIcon}>
-                <Ionicons name="navigate" size={18} color={accent.routine} />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.title}>{item.name || formatDate(item.startTime)}</Text>
-                <Text style={styles.meta}>
-                  {item.totalDistance.toFixed(1)} km · avg {Math.round(item.averageSpeed)} km/h
+        ListHeaderComponent={
+          <ScreenHeader
+            title="History"
+            subtitle={
+              routes.length
+                ? `${routes.length} ${routes.length === 1 ? "drive" : "drives"} · ${totalKm.toFixed(0)} km recorded`
+                : "Your recorded drives"
+            }
+            style={styles.header}
+          />
+        }
+        ListEmptyComponent={
+          <EmptyState
+            icon="car-sport-outline"
+            title="No drives yet"
+            message="Drives you record show up here with their route, distance and cost."
+            action={{
+              label: "Start a drive",
+              icon: "play",
+              onPress: () => router.push("/journey"),
+            }}
+          />
+        }
+        renderSectionHeader={({ section }) => (
+          <Text variant="overline" tone="tertiary" style={styles.sectionLabel}>
+            {section.title}
+          </Text>
+        )}
+        renderItem={({ item, index, section }) => {
+          const first = index === 0;
+          const last = index === section.data.length - 1;
+          const start = new Date(item.startTime);
+          const mins = minutesBetween(item.startTime, item.endTime);
+          const meta = [
+            formatTime(start),
+            mins != null ? formatDuration(mins) : null,
+            `avg ${Math.round(item.averageSpeed)} km/h`,
+          ]
+            .filter(Boolean)
+            .join(" · ");
+          return (
+            <Pressable
+              onPress={() => router.push(`/trip/${item.id}`)}
+              accessibilityRole="button"
+              accessibilityLabel={`${item.name || driveName(start)}, ${item.totalDistance.toFixed(1)} kilometres`}
+              style={({ pressed }) => [
+                styles.row,
+                first && styles.rowFirst,
+                last && styles.rowLast,
+                !first && styles.rowDivider,
+                pressed && styles.rowPressed,
+              ]}
+            >
+              <IconWell icon="navigate" category="routine" size={40} />
+              <View style={styles.rowBody}>
+                <Text variant="callout" numberOfLines={1}>
+                  {item.name || driveName(start)}
+                </Text>
+                <Text variant="footnote" tone="secondary" numberOfLines={1}>
+                  {meta}
                 </Text>
               </View>
+              <Text variant="bodyStrong" tabular>
+                {item.totalDistance.toFixed(1)}
+                <Text variant="footnote" tone="secondary">
+                  {" "}
+                  km
+                </Text>
+              </Text>
+              <Ionicons name="chevron-forward" size={16} color={t.color.textTertiary} />
             </Pressable>
-            <View style={styles.actions}>
-              <Pressable
-                style={styles.actionBtn}
-                disabled={busyId === item.id}
-                onPress={() => void onExport(item)}
-              >
-                <Text style={styles.actionText}>Export</Text>
-              </Pressable>
-              <Pressable
-                style={[styles.actionBtn, styles.deleteBtn]}
-                disabled={busyId === item.id}
-                onPress={() => onDelete(item)}
-              >
-                <Text style={[styles.actionText, styles.deleteText]}>Delete</Text>
-              </Pressable>
-            </View>
-          </View>
-        )}
+          );
+        }}
       />
-    </SafeAreaView>
+    </Screen>
   );
 }
 
-function formatDate(iso: string): string {
-  const d = new Date(iso);
-  return (
-    d.toLocaleDateString(undefined, { day: "numeric", month: "short" }) +
-    ", " +
-    d.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" })
-  );
-}
-
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#f5f7fb" },
-  list: { padding: 16, gap: 10 },
-  empty: { color: "#5b6b86", textAlign: "center", marginTop: 24 },
+const useStyles = makeStyles((t) => ({
+  content: { paddingHorizontal: space.xl, paddingBottom: space.xl },
+  header: { paddingTop: space.md, marginBottom: space.sm },
+  sectionLabel: { marginTop: space.xl, marginBottom: space.sm, marginLeft: space.xs },
   row: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#ffffff",
-    borderColor: "#e4e9f2",
-    borderWidth: 1,
-    borderRadius: 14,
-    padding: 16,
-    ...shadow,
+    gap: space.md,
+    backgroundColor: t.color.surface,
+    borderColor: t.color.border,
+    borderLeftWidth: 1,
+    borderRightWidth: 1,
+    paddingHorizontal: space.lg,
+    paddingVertical: 14,
   },
-  info: { flex: 1, flexDirection: "row", alignItems: "center", gap: 12 },
-  routeIcon: {
-    width: 38,
-    height: 38,
-    borderRadius: radius.md,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: accent.routine + "1a",
+  rowFirst: {
+    borderTopWidth: 1,
+    borderTopLeftRadius: radius.lg,
+    borderTopRightRadius: radius.lg,
   },
-  title: { color: "#0f172a", fontSize: 16, fontWeight: "700" },
-  meta: { color: "#5b6b86", fontSize: 13, marginTop: 3 },
-  actions: { flexDirection: "row", gap: 8, marginLeft: 8 },
-  actionBtn: {
-    paddingVertical: 8,
-    paddingHorizontal: 10,
-    borderRadius: 8,
-    backgroundColor: "#e6ebf3",
+  rowLast: {
+    borderBottomWidth: 1,
+    borderBottomLeftRadius: radius.lg,
+    borderBottomRightRadius: radius.lg,
   },
-  actionText: { color: "#5b6b86", fontSize: 12, fontWeight: "700" },
-  deleteBtn: { backgroundColor: "#fee2e2" },
-  deleteText: { color: "#dc2626" },
-});
+  rowDivider: { borderTopWidth: 1 },
+  rowPressed: { backgroundColor: t.color.surfaceMuted },
+  rowBody: { flex: 1, minWidth: 0, gap: 2 },
+}));

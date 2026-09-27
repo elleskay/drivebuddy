@@ -1,13 +1,35 @@
 import { useCallback, useState } from "react";
-import { FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
-import { SkeletonList } from "@/components/skeleton";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { FlatList, RefreshControl, View } from "react-native";
 import { useFocusEffect } from "expo-router";
-import { accent, colors, radius, shadow } from "@/lib/theme";
 import { api, type Insights, type Recommendation } from "@/lib/api";
+import { money } from "@/lib/format";
+import { REC_ICON } from "@/lib/icons";
+import { makeStyles, useTheme } from "@/lib/theme-context";
+import { space } from "@/lib/theme";
+import { SkeletonList } from "@/components/skeleton";
+import {
+  Card,
+  EmptyState,
+  IconButton,
+  IconWell,
+  Screen,
+  ScreenHeader,
+  SectionHeader,
+  Stat,
+  Text,
+} from "@/components/ui";
+
+const CATEGORY_LABEL: Record<Recommendation["category"], string> = {
+  erp: "ERP",
+  fuel: "Fuel",
+  routine: "Routine",
+  safety: "Safety",
+  carpark: "Parking",
+};
 
 export default function RecommendationsScreen() {
+  const t = useTheme();
+  const styles = useStyles();
   const [insights, setInsights] = useState<Insights | null>(null);
   const [recs, setRecs] = useState<Recommendation[]>([]);
   const [loading, setLoading] = useState(true);
@@ -40,18 +62,19 @@ export default function RecommendationsScreen() {
 
   if (loading) {
     return (
-      <View style={styles.container}>
+      <Screen>
         <SkeletonList />
-      </View>
+      </Screen>
     );
   }
 
   return (
-    <SafeAreaView style={styles.container} edges={["bottom"]}>
+    <Screen>
       <FlatList
         data={recs}
         keyExtractor={(r) => r.id}
-        contentContainerStyle={styles.list}
+        contentContainerStyle={styles.content}
+        showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -59,60 +82,98 @@ export default function RecommendationsScreen() {
               setRefreshing(true);
               void load(true);
             }}
-            tintColor="#2563eb"
+            tintColor={t.color.accentInk}
+            colors={[t.color.onAccent]}
+            progressBackgroundColor={t.color.accent}
           />
         }
-        ListHeaderComponent={insights ? <InsightsHeader insights={insights} /> : null}
+        ListHeaderComponent={
+          <View style={styles.header}>
+            <ScreenHeader title="Insights" subtitle="Patterns and tips from your drives" />
+            {insights ? <InsightsSummary insights={insights} /> : null}
+            <SectionHeader title="Recommendations" />
+          </View>
+        }
         ListEmptyComponent={
-          <Text style={styles.empty}>
-            No recommendations yet. Record a few drives and pull to refresh. Tips appear as
-            DriveBuddy learns your patterns.
-          </Text>
+          <EmptyState
+            icon="bulb-outline"
+            title="No tips yet"
+            message="Record a few drives and pull down to refresh. Tips appear as DriveBuddy learns your patterns."
+          />
         }
         renderItem={({ item }) => (
-          <View style={styles.card}>
-            <View style={styles.cardIconWrap}>
-              <Ionicons name="bulb-outline" size={20} color={accent.carpark} />
+          <Card style={styles.rec}>
+            <IconWell icon={REC_ICON[item.category]} category={item.category} size={42} />
+            <View style={styles.recBody}>
+              <Text variant="overline" style={{ color: t.category[item.category] }}>
+                {CATEGORY_LABEL[item.category]}
+              </Text>
+              <Text variant="bodyStrong">{item.title}</Text>
+              <Text variant="subhead" tone="secondary">
+                {item.body}
+              </Text>
             </View>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.cardTitle}>{item.title}</Text>
-              <Text style={styles.cardBody}>{item.body}</Text>
-            </View>
-            <Pressable onPress={() => void dismiss(item.id)} hitSlop={10}>
-              <Ionicons name="close-circle" size={22} color={colors.textDim} />
-            </Pressable>
-          </View>
+            <IconButton
+              icon="close"
+              variant="plain"
+              size={32}
+              color={t.color.textTertiary}
+              accessibilityLabel={`Dismiss ${item.title}`}
+              onPress={() => void dismiss(item.id)}
+            />
+          </Card>
         )}
       />
-    </SafeAreaView>
+    </Screen>
   );
 }
 
-function InsightsHeader({ insights: i }: { insights: Insights }) {
+function InsightsSummary({ insights: i }: { insights: Insights }) {
+  const styles = useStyles();
   return (
-    <View style={styles.headerWrap}>
-      <Text style={styles.section}>Your driving</Text>
-      <View style={styles.statsGrid}>
-        <Stat value={String(i.totalTrips)} label="Trips" />
-        <Stat value={i.totalDistanceKm.toFixed(0)} label="km total" />
-        <Stat value={`$${i.totalCost.toFixed(0)}`} label="Spent" />
+    <>
+      <Card variant="accent" style={styles.hero}>
+        <Text variant="overline" tone="onAccent" style={styles.heroLabel}>
+          Total spent on the road
+        </Text>
+        <Text variant="display" tone="onAccent" tabular>
+          {money(i.totalCost, 0)}
+        </Text>
+        <Text variant="subhead" tone="onAccent" style={styles.heroLabel}>
+          across {i.totalTrips} {i.totalTrips === 1 ? "trip" : "trips"} ·{" "}
+          {Math.round(i.totalDistanceKm).toLocaleString()} km
+        </Text>
+      </Card>
+      <View style={styles.grid}>
+        <Stat
+          label="Avg per trip"
+          value={money(i.avgCostPerTrip)}
+          icon="wallet-outline"
+          category="fuel"
+        />
+        <Stat
+          label="Avg distance"
+          value={i.avgDistanceKm.toFixed(1)}
+          unit="km"
+          icon="navigate-outline"
+          category="routine"
+        />
       </View>
-      <View style={styles.statsGrid}>
-        <Stat value={`$${i.avgCostPerTrip.toFixed(2)}`} label="Avg / trip" />
-        <Stat value={i.busiestDay ?? "-"} label="Busiest day" />
-        <Stat value={i.peakHour != null ? formatHour(i.peakHour) : "-"} label="Peak hour" />
+      <View style={styles.grid}>
+        <Stat
+          label="Busiest day"
+          value={i.busiestDay ?? "-"}
+          icon="calendar-outline"
+          category="carpark"
+        />
+        <Stat
+          label="Peak hour"
+          value={i.peakHour != null ? formatHour(i.peakHour) : "-"}
+          icon="time-outline"
+          category="traffic"
+        />
       </View>
-      <Text style={styles.section}>Recommendations</Text>
-    </View>
-  );
-}
-
-function Stat({ value, label }: { value: string; label: string }) {
-  return (
-    <View style={styles.stat}>
-      <Text style={styles.statValue}>{value}</Text>
-      <Text style={styles.statLabel}>{label}</Text>
-    </View>
+    </>
   );
 }
 
@@ -122,49 +183,12 @@ function formatHour(h: number): string {
   return `${hr}${am ? "am" : "pm"}`;
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#f5f7fb" },
-  list: { padding: 16, gap: 10 },
-  headerWrap: { gap: 10, marginBottom: 4 },
-  section: { color: "#5b6b86", fontSize: 13, fontWeight: "700", marginTop: 6, marginLeft: 4 },
-  statsGrid: { flexDirection: "row", gap: 10 },
-  stat: {
-    flex: 1,
-    backgroundColor: "#ffffff",
-    borderColor: "#e4e9f2",
-    borderWidth: 1,
-    borderRadius: 12,
-    padding: 12,
-    alignItems: "center",
-  },
-  statValue: { color: "#0f172a", fontSize: 18, fontWeight: "800" },
-  statLabel: { color: "#5b6b86", fontSize: 11, marginTop: 3 },
-  empty: {
-    color: "#5b6b86",
-    textAlign: "center",
-    marginTop: 16,
-    paddingHorizontal: 12,
-    lineHeight: 20,
-  },
-  card: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-    backgroundColor: "#ffffff",
-    borderColor: "#e4e9f2",
-    borderWidth: 1,
-    borderRadius: 14,
-    padding: 16,
-    ...shadow,
-  },
-  cardIconWrap: {
-    width: 40,
-    height: 40,
-    borderRadius: radius.md,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: accent.carpark + "1a",
-  },
-  cardTitle: { color: "#0f172a", fontSize: 15, fontWeight: "700" },
-  cardBody: { color: "#5b6b86", fontSize: 13, marginTop: 3, lineHeight: 19 },
-});
+const useStyles = makeStyles(() => ({
+  content: { padding: space.xl, paddingTop: space.xs, gap: space.md },
+  header: { gap: space.md, marginBottom: space.xs },
+  hero: { gap: space.xs, paddingVertical: space.xl },
+  heroLabel: { opacity: 0.7 },
+  grid: { flexDirection: "row", gap: space.md },
+  rec: { flexDirection: "row", alignItems: "flex-start", gap: space.md },
+  recBody: { flex: 1, minWidth: 0, gap: 3 },
+}));

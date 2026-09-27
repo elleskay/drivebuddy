@@ -23,7 +23,13 @@ exports to web (react-native-web) for the GitHub Pages demo.
 - `lib/location-task.ts` - background location task (expo-task-manager) that
   keeps posting GPS batches with the screen off
 - `lib/push.ts` - Expo push registration (no-ops without an EAS project id)
-- `lib/theme.ts` - shared colors/spacing/shadows
+- `lib/theme.ts` - design tokens: light and dark palettes (lime accent on
+  graphite), Geist type scale, spacing, radii
+- `lib/theme-context.tsx` - `ThemeProvider` (System/Light/Dark, chosen in
+  Settings and persisted) and `makeStyles` for theme-aware style sheets
+- `components/ui.tsx` - UI kit every screen composes (Text, Button, Card,
+  ListRow, TextField, Segmented, Toggle...); `components/tab-bar.tsx` is the
+  floating tab bar with the Drive action in the center
 
 ## Configuration
 

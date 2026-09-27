@@ -1,22 +1,33 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
-  ActivityIndicator,
+  Animated,
+  Easing,
   FlatList,
   KeyboardAvoidingView,
   Platform,
   Pressable,
-  StyleSheet,
-  Text,
   TextInput,
   View,
+  type TextStyle,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
-import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import { Audio } from "expo-av";
 import * as FileSystem from "expo-file-system";
 import { api, ApiError } from "@/lib/api";
-import { colors, gradients } from "@/lib/theme";
+import { makeStyles, useTheme } from "@/lib/theme-context";
+import { font, radius, space } from "@/lib/theme";
+import { IconButton, Screen, ScreenHeader, Text } from "@/components/ui";
+
+const SUGGESTIONS = [
+  "ERP charges right now?",
+  "Cheapest petrol today",
+  "Any traffic incidents?",
+  "Where can I park in Orchard?",
+];
+
+// react-native-web draws the browser focus outline around the input.
+const webNoOutline =
+  Platform.OS === "web" ? ({ outlineStyle: "none" } as unknown as TextStyle) : null;
 
 interface Msg {
   id: string;
@@ -28,6 +39,8 @@ let seq = 0;
 const nextId = () => `m${seq++}`;
 
 export default function AssistantScreen() {
+  const t = useTheme();
+  const styles = useStyles();
   const [messages, setMessages] = useState<Msg[]>([
     {
       id: nextId(),
@@ -201,156 +214,233 @@ export default function AssistantScreen() {
     });
   }, [busy, startRecording, stopRecording]);
 
+  const canSend = !busy && input.trim().length > 0;
+  const showSuggestions = messages.length === 1 && !busy && !recording;
+
   return (
-    <SafeAreaView style={styles.container} edges={["bottom"]}>
+    <Screen edges={["top"]}>
       <KeyboardAvoidingView
-        style={{ flex: 1 }}
+        style={styles.flex}
         behavior={Platform.OS === "ios" ? "padding" : undefined}
-        keyboardVerticalOffset={90}
       >
+        <ScreenHeader
+          title="Assistant"
+          subtitle={
+            continuous
+              ? "Hands-free on: listening each turn, replies aloud"
+              : "Ask about ERP, traffic, parking or fuel"
+          }
+          right={
+            <IconButton
+              icon={continuous ? "ear" : "ear-outline"}
+              variant={continuous ? "accent" : "surface"}
+              accessibilityLabel={continuous ? "Stop hands-free mode" : "Start hands-free mode"}
+              onPress={toggleContinuous}
+            />
+          }
+          style={styles.header}
+        />
+
         <FlatList
           ref={listRef}
           data={messages}
           keyExtractor={(m) => m.id}
           contentContainerStyle={styles.list}
-          renderItem={({ item }) => (
-            <View style={[styles.bubble, item.role === "user" ? styles.user : styles.assistant]}>
-              <Text style={item.role === "user" ? styles.userText : styles.assistantText}>
-                {item.text}
-              </Text>
-            </View>
-          )}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+          onContentSizeChange={() => listRef.current?.scrollToEnd({ animated: true })}
+          renderItem={({ item }) =>
+            item.role === "user" ? (
+              <View style={[styles.bubble, styles.user]}>
+                <Text variant="body" tone="onAccent">
+                  {item.text}
+                </Text>
+              </View>
+            ) : (
+              <View style={styles.assistantRow}>
+                <View style={styles.botAvatar}>
+                  <Ionicons name="sparkles" size={14} color={t.color.accentInk} />
+                </View>
+                <View style={[styles.bubble, styles.assistant]}>
+                  <Text variant="body">{item.text}</Text>
+                </View>
+              </View>
+            )
+          }
+          ListFooterComponent={
+            busy ? (
+              <View style={styles.assistantRow}>
+                <View style={styles.botAvatar}>
+                  <Ionicons name="sparkles" size={14} color={t.color.accentInk} />
+                </View>
+                <View style={[styles.bubble, styles.assistant]}>
+                  <TypingDots />
+                </View>
+              </View>
+            ) : showSuggestions ? (
+              <View style={styles.suggestions}>
+                {SUGGESTIONS.map((s) => (
+                  <Pressable
+                    key={s}
+                    onPress={() => void send(s)}
+                    accessibilityRole="button"
+                    style={({ pressed }) => [styles.chip, pressed && styles.chipPressed]}
+                  >
+                    <Text variant="subheadStrong">{s}</Text>
+                  </Pressable>
+                ))}
+              </View>
+            ) : null
+          }
         />
-        {busy ? (
-          <View style={styles.thinking}>
-            <ActivityIndicator color="#2563eb" />
-            <Text style={styles.thinkingText}>Thinking…</Text>
-          </View>
-        ) : null}
-        <Pressable
-          style={[styles.handsFree, continuous && styles.handsFreeOn]}
-          onPress={toggleContinuous}
-        >
-          <Ionicons
-            name={continuous ? "ear" : "ear-outline"}
-            size={15}
-            color={continuous ? colors.primary : colors.textMuted}
-          />
-          <Text style={[styles.handsFreeText, continuous && styles.handsFreeTextOn]}>
-            {continuous ? "Hands-free on — listening, tap to stop" : "Start hands-free mode"}
-          </Text>
-        </Pressable>
-        <View style={styles.inputBar}>
-          <Pressable
-            style={[styles.mic, recording && styles.micActive]}
+
+        <View style={styles.composer}>
+          <IconButton
+            icon={recording ? "stop" : "mic-outline"}
+            variant={recording ? "danger" : "surface"}
+            accessibilityLabel={recording ? "Stop recording" : "Record a voice question"}
             onPress={() => void (recording ? stopRecording() : startRecording())}
             disabled={busy && !recording}
-          >
-            <Ionicons
-              name={recording ? "stop" : "mic"}
-              size={20}
-              color={recording ? "#fff" : colors.primary}
-            />
-          </Pressable>
-          <TextInput
-            style={styles.input}
-            value={input}
-            onChangeText={setInput}
-            placeholder={recording ? "Listening…" : "Ask DriveBuddy…"}
-            placeholderTextColor="#94a3b8"
-            editable={!recording}
-            onSubmitEditing={() => void send(input)}
-            returnKeyType="send"
+            size={48}
           />
-          <Pressable onPress={() => void send(input)} disabled={busy || !input.trim()}>
-            <LinearGradient
-              colors={gradients.primary}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={[styles.sendBtn, (busy || !input.trim()) && { opacity: 0.5 }]}
-            >
-              <Ionicons name="arrow-up" size={20} color="#fff" />
-            </LinearGradient>
-          </Pressable>
+          <View style={[styles.inputWrap, recording && styles.inputWrapRecording]}>
+            <TextInput
+              style={[styles.input, webNoOutline]}
+              value={input}
+              onChangeText={setInput}
+              placeholder={recording ? "Listening…" : "Ask DriveBuddy…"}
+              placeholderTextColor={recording ? t.color.danger : t.color.textTertiary}
+              selectionColor={t.color.accentInk}
+              editable={!recording}
+              onSubmitEditing={() => void send(input)}
+              returnKeyType="send"
+            />
+          </View>
+          <IconButton
+            icon="arrow-up"
+            variant={canSend ? "accent" : "muted"}
+            color={canSend ? undefined : t.color.textTertiary}
+            accessibilityLabel="Send"
+            onPress={() => void send(input)}
+            disabled={!canSend}
+            size={48}
+          />
         </View>
       </KeyboardAvoidingView>
-    </SafeAreaView>
+    </Screen>
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#f5f7fb" },
-  list: { padding: 16, gap: 10 },
-  bubble: { maxWidth: "85%", borderRadius: 16, paddingVertical: 10, paddingHorizontal: 14 },
-  user: { alignSelf: "flex-end", backgroundColor: "#2563eb" },
-  assistant: {
-    alignSelf: "flex-start",
-    backgroundColor: "#ffffff",
-    borderColor: "#e4e9f2",
-    borderWidth: 1,
+/** Three dots pulsing in sequence while the assistant composes a reply. */
+function TypingDots() {
+  const t = useTheme();
+  const styles = useStyles();
+  const v = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    const loop = Animated.loop(
+      Animated.timing(v, {
+        toValue: 1,
+        duration: 1200,
+        easing: Easing.linear,
+        useNativeDriver: true,
+      }),
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [v]);
+
+  return (
+    <View style={styles.dots} accessibilityLabel="DriveBuddy is typing">
+      {[0, 1, 2].map((i) => (
+        <Animated.View
+          key={i}
+          style={[
+            styles.dot,
+            {
+              backgroundColor: t.color.textSecondary,
+              opacity: v.interpolate({
+                inputRange: [0, 0.25, 0.5, 0.75, 1],
+                outputRange: [0, 1, 2, 3, 4].map((k) => (k === i + 1 ? 1 : 0.25)),
+              }),
+            },
+          ]}
+        />
+      ))}
+    </View>
+  );
+}
+
+const useStyles = makeStyles((t) => ({
+  flex: { flex: 1 },
+  header: { paddingHorizontal: space.xl, paddingTop: space.md, paddingBottom: space.sm },
+  list: { paddingHorizontal: space.xl, paddingVertical: space.md, gap: space.md },
+
+  bubble: {
+    maxWidth: "82%",
+    borderRadius: radius.lg,
+    paddingVertical: 11,
+    paddingHorizontal: space.lg,
   },
-  userText: { color: "#fff", fontSize: 15 },
-  assistantText: { color: "#0f172a", fontSize: 15 },
-  thinking: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    paddingHorizontal: 18,
-    paddingBottom: 6,
+  user: {
+    alignSelf: "flex-end",
+    backgroundColor: t.color.accent,
+    borderBottomRightRadius: 6,
   },
-  thinkingText: { color: "#5b6b86", fontSize: 13 },
-  handsFree: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    alignSelf: "center",
-    marginBottom: 6,
-    paddingHorizontal: 14,
-    paddingVertical: 7,
+  assistantRow: { flexDirection: "row", alignItems: "flex-end", gap: space.sm },
+  botAvatar: {
+    width: 28,
+    height: 28,
     borderRadius: 14,
-    borderWidth: 1,
-    borderColor: "#e4e9f2",
-    backgroundColor: "#ffffff",
+    backgroundColor: t.color.accentSoft,
+    alignItems: "center",
+    justifyContent: "center",
   },
-  handsFreeOn: { backgroundColor: "#e8f0ff", borderColor: "#2563eb" },
-  handsFreeText: { color: "#5b6b86", fontSize: 12, fontWeight: "700" },
-  handsFreeTextOn: { color: "#2563eb" },
-  inputBar: {
+  assistant: {
+    flexShrink: 1,
+    backgroundColor: t.color.surface,
+    borderColor: t.color.border,
+    borderWidth: 1,
+    borderBottomLeftRadius: 6,
+  },
+
+  suggestions: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: space.sm,
+    marginTop: space.sm,
+    paddingLeft: 36,
+  },
+  chip: {
+    borderRadius: radius.pill,
+    borderWidth: 1,
+    borderColor: t.color.borderStrong,
+    backgroundColor: t.color.surface,
+    paddingHorizontal: 14,
+    paddingVertical: 9,
+  },
+  chipPressed: { backgroundColor: t.color.surfaceMuted },
+
+  dots: { flexDirection: "row", gap: 5, paddingVertical: 7 },
+  dot: { width: 7, height: 7, borderRadius: 4 },
+
+  composer: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 8,
-    padding: 12,
-    borderTopColor: "#e4e9f2",
-    borderTopWidth: 1,
-    backgroundColor: "#f5f7fb",
+    gap: space.sm,
+    paddingHorizontal: space.lg,
+    paddingVertical: space.sm,
   },
-  mic: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: "#ffffff",
-    borderColor: "#e4e9f2",
-    borderWidth: 1,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  micActive: { backgroundColor: "#dc2626", borderColor: "#dc2626" },
-  input: {
+  inputWrap: {
     flex: 1,
-    backgroundColor: "#ffffff",
-    borderColor: "#e4e9f2",
-    borderWidth: 1,
-    borderRadius: 22,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    color: "#0f172a",
-    fontSize: 15,
-  },
-  sendBtn: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    alignItems: "center",
+    height: 48,
     justifyContent: "center",
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: t.color.border,
+    backgroundColor: t.color.surface,
+    paddingHorizontal: space.lg,
   },
-});
+  inputWrapRecording: { borderColor: t.color.danger },
+  input: { color: t.color.text, fontFamily: font.regular, fontSize: 16, paddingVertical: 0 },
+}));

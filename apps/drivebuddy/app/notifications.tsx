@@ -1,27 +1,18 @@
 import { useCallback, useState } from "react";
-import { FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
-import { SkeletonList } from "@/components/skeleton";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { FlatList, Pressable, RefreshControl, View } from "react-native";
 import { useFocusEffect, useRouter } from "expo-router";
-import { api, type AppNotification, type NotificationType } from "@/lib/api";
-import { accent, radius, shadow } from "@/lib/theme";
-
-const NOTIF_ICON: Record<NotificationType, React.ComponentProps<typeof Ionicons>["name"]> = {
-  PRE_DRIVE: "alarm-outline",
-  REAL_TIME: "warning-outline",
-  POST_TRIP: "receipt-outline",
-  SYSTEM: "information-circle-outline",
-};
-const NOTIF_TINT: Record<NotificationType, string> = {
-  PRE_DRIVE: accent.routine,
-  REAL_TIME: accent.traffic,
-  POST_TRIP: accent.fuel,
-  SYSTEM: accent.carpark,
-};
+import { api, type AppNotification } from "@/lib/api";
+import { relativeTime } from "@/lib/format";
+import { NOTIF_CATEGORY, NOTIF_ICON } from "@/lib/icons";
+import { makeStyles, useTheme } from "@/lib/theme-context";
+import { radius, space } from "@/lib/theme";
+import { SkeletonList } from "@/components/skeleton";
+import { Button, EmptyState, IconWell, Screen, ScreenHeader, Text } from "@/components/ui";
 
 export default function NotificationsScreen() {
   const router = useRouter();
+  const t = useTheme();
+  const styles = useStyles();
   const [items, setItems] = useState<AppNotification[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -65,26 +56,21 @@ export default function NotificationsScreen() {
 
   if (loading) {
     return (
-      <View style={styles.container}>
+      <Screen>
         <SkeletonList />
-      </View>
+      </Screen>
     );
   }
 
+  const unread = items.filter((n) => !n.read).length;
+
   return (
-    <SafeAreaView style={styles.container} edges={["bottom"]}>
-      <View style={styles.toolbar}>
-        <Pressable onPress={() => void sendTest()} hitSlop={8}>
-          <Text style={styles.toolbarLink}>Send test</Text>
-        </Pressable>
-        <Pressable onPress={() => void markAll()} hitSlop={8}>
-          <Text style={styles.toolbarLink}>Mark all read</Text>
-        </Pressable>
-      </View>
+    <Screen>
       <FlatList
         data={items}
         keyExtractor={(n) => n.id}
-        contentContainerStyle={styles.list}
+        contentContainerStyle={styles.content}
+        showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -92,70 +78,99 @@ export default function NotificationsScreen() {
               setRefreshing(true);
               void load();
             }}
-            tintColor="#2563eb"
+            tintColor={t.color.accentInk}
+            colors={[t.color.onAccent]}
+            progressBackgroundColor={t.color.accent}
           />
         }
-        ListEmptyComponent={<Text style={styles.empty}>No notifications yet.</Text>}
-        renderItem={({ item }) => (
-          <Pressable style={[styles.row, !item.read && styles.unread]} onPress={() => onTap(item)}>
-            <View style={[styles.nIcon, { backgroundColor: NOTIF_TINT[item.type] + "1a" }]}>
-              <Ionicons name={NOTIF_ICON[item.type]} size={20} color={NOTIF_TINT[item.type]} />
+        ListHeaderComponent={
+          <View style={styles.header}>
+            <ScreenHeader
+              title="Notifications"
+              subtitle={unread ? `${unread} unread` : "You're all caught up"}
+            />
+            <View style={styles.actions}>
+              <Button
+                label="Mark all read"
+                icon="checkmark-done-outline"
+                variant="secondary"
+                size="sm"
+                onPress={() => void markAll()}
+                disabled={!unread}
+              />
+              <Button
+                label="Send test"
+                icon="paper-plane-outline"
+                variant="secondary"
+                size="sm"
+                onPress={() => void sendTest()}
+              />
             </View>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.title}>{item.title}</Text>
-              <Text style={styles.body}>{item.body}</Text>
-              <Text style={styles.time}>{formatTime(item.createdAt)}</Text>
+          </View>
+        }
+        ListEmptyComponent={
+          <EmptyState
+            icon="notifications-outline"
+            title="No notifications yet"
+            message="Trip summaries, pre-drive reminders and live alerts will show up here."
+          />
+        }
+        renderItem={({ item }) => (
+          <Pressable
+            onPress={() => onTap(item)}
+            accessibilityRole="button"
+            accessibilityLabel={`${item.read ? "" : "Unread. "}${item.title}. ${item.body}`}
+            style={({ pressed }) => [styles.item, pressed && styles.itemPressed]}
+          >
+            <IconWell icon={NOTIF_ICON[item.type]} category={NOTIF_CATEGORY[item.type]} size={42} />
+            <View style={styles.body}>
+              <View style={styles.titleRow}>
+                <Text
+                  variant={item.read ? "callout" : "bodyStrong"}
+                  numberOfLines={2}
+                  style={styles.title}
+                >
+                  {item.title}
+                </Text>
+                <Text variant="caption" tone="tertiary">
+                  {relativeTime(item.createdAt)}
+                </Text>
+              </View>
+              <Text variant="subhead" tone="secondary">
+                {item.body}
+              </Text>
             </View>
             {!item.read ? <View style={styles.dot} /> : null}
           </Pressable>
         )}
       />
-    </SafeAreaView>
+    </Screen>
   );
 }
 
-function formatTime(iso: string): string {
-  const d = new Date(iso);
-  return (
-    d.toLocaleDateString(undefined, { day: "numeric", month: "short" }) +
-    ", " +
-    d.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" })
-  );
-}
-
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#f5f7fb" },
-  toolbar: {
+const useStyles = makeStyles((t) => ({
+  content: { padding: space.xl, paddingTop: space.xs, gap: space.sm },
+  header: { gap: space.lg, marginBottom: space.sm },
+  actions: { flexDirection: "row", gap: space.sm },
+  item: {
     flexDirection: "row",
-    justifyContent: "space-between",
-    paddingHorizontal: 18,
-    paddingTop: 12,
-    paddingBottom: 4,
-  },
-  toolbarLink: { color: "#2563eb", fontSize: 14, fontWeight: "600" },
-  list: { padding: 16, gap: 10 },
-  empty: { color: "#5b6b86", textAlign: "center", marginTop: 24 },
-  row: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-    backgroundColor: "#ffffff",
-    borderColor: "#e4e9f2",
+    alignItems: "flex-start",
+    gap: space.md,
+    backgroundColor: t.color.surface,
+    borderColor: t.color.border,
     borderWidth: 1,
-    borderRadius: 14,
-    padding: 16,
-    ...shadow,
+    borderRadius: radius.lg,
+    padding: space.lg,
   },
-  unread: { borderColor: "#2563eb", backgroundColor: "#e8f0ff" },
-  nIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: radius.md,
-    alignItems: "center",
-    justifyContent: "center",
+  itemPressed: { backgroundColor: t.color.surfaceMuted },
+  body: { flex: 1, minWidth: 0, gap: 2 },
+  titleRow: { flexDirection: "row", alignItems: "flex-start", gap: space.sm },
+  title: { flex: 1, minWidth: 0 },
+  dot: {
+    width: 9,
+    height: 9,
+    borderRadius: 5,
+    backgroundColor: t.color.accentInk,
+    marginTop: 6,
   },
-  title: { color: "#0f172a", fontSize: 15, fontWeight: "700" },
-  body: { color: "#5b6b86", fontSize: 13, marginTop: 2 },
-  time: { color: "#94a3b8", fontSize: 11, marginTop: 4 },
-  dot: { width: 10, height: 10, borderRadius: 5, backgroundColor: "#2563eb" },
-});
+}));

@@ -1,172 +1,126 @@
 import Constants from "expo-constants";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
-import { LinearGradient } from "expo-linear-gradient";
+import { ScrollView, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useAuth } from "@/lib/auth-context";
-import { accent, colors, gradients, radius, shadow } from "@/lib/theme";
+import { makeStyles, useAppearance, useTheme, type Appearance } from "@/lib/theme-context";
+import { space } from "@/lib/theme";
+import {
+  Avatar,
+  Button,
+  Card,
+  GroupLabel,
+  ListGroup,
+  ListRow,
+  Screen,
+  ScreenHeader,
+  Segmented,
+  Text,
+} from "@/components/ui";
 
-type IoniconName = React.ComponentProps<typeof Ionicons>["name"];
+const APPEARANCE_OPTIONS: { label: string; value: Appearance }[] = [
+  { label: "System", value: "system" },
+  { label: "Light", value: "light" },
+  { label: "Dark", value: "dark" },
+];
+
+// Separator inset: row padding (16) + icon well (34) + gap (12).
+const ROW_INSET = 62;
 
 export default function SettingsScreen() {
   const router = useRouter();
+  const t = useTheme();
+  const styles = useStyles();
   const { user, signOut } = useAuth();
+  const { appearance, setAppearance } = useAppearance();
   const apiUrl = (Constants.expoConfig?.extra?.apiUrl as string | undefined) ?? "-";
   const version = Constants.expoConfig?.version ?? "0.1.0";
 
   return (
-    <SafeAreaView style={styles.container} edges={["bottom"]}>
-      <ScrollView contentContainerStyle={styles.inner}>
-        <View style={styles.profileCard}>
-          <LinearGradient
-            colors={gradients.primary}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={styles.avatar}
-          >
-            <Text style={styles.avatarText}>{(user?.fullName ?? "?").charAt(0).toUpperCase()}</Text>
-          </LinearGradient>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.name}>{user?.fullName ?? "DriveBuddy user"}</Text>
-            <Text style={styles.email}>{user?.email ?? ""}</Text>
-          </View>
-        </View>
+    <Screen>
+      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+        <ScreenHeader title="Settings" />
 
-        <Text style={styles.section}>Account</Text>
-        <View style={styles.group}>
-          <Row
-            label="Edit profile"
+        <Card
+          onPress={() => router.push("/profile")}
+          accessibilityLabel="Edit profile"
+          style={styles.profile}
+        >
+          <Avatar name={user?.fullName} size={56} />
+          <View style={styles.flex}>
+            <Text variant="title3" numberOfLines={1}>
+              {user?.fullName ?? "DriveBuddy user"}
+            </Text>
+            <Text variant="subhead" tone="secondary" numberOfLines={1}>
+              {user?.email ?? ""}
+            </Text>
+          </View>
+          <Ionicons name="chevron-forward" size={18} color={t.color.textTertiary} />
+        </Card>
+
+        <GroupLabel>Appearance</GroupLabel>
+        <Segmented options={APPEARANCE_OPTIONS} value={appearance} onChange={setAppearance} />
+
+        <GroupLabel>Account</GroupLabel>
+        <ListGroup inset={ROW_INSET}>
+          <ListRow
+            title="Edit profile"
             icon="person-outline"
-            tint={accent.weather}
+            category="weather"
             onPress={() => router.push("/profile")}
           />
-          <Row
-            label="My vehicles"
+          <ListRow
+            title="My vehicles"
             icon="car-outline"
-            tint={accent.fuel}
+            category="fuel"
             onPress={() => router.push("/vehicles")}
           />
-          <Row
-            label="Notification settings"
+          <ListRow
+            title="Notification settings"
             icon="notifications-outline"
-            tint={accent.traffic}
+            category="traffic"
             onPress={() => router.push("/notification-settings")}
-            last
           />
-        </View>
+        </ListGroup>
 
-        <Text style={styles.section}>Activity</Text>
-        <View style={styles.group}>
-          <Row
-            label="Trip history"
+        <GroupLabel>Activity</GroupLabel>
+        <ListGroup inset={ROW_INSET}>
+          <ListRow
+            title="Trip history"
             icon="time-outline"
-            tint={accent.routine}
+            category="routine"
             onPress={() => router.push("/history")}
           />
-          <Row
-            label="Recommendations"
+          <ListRow
+            title="Insights"
             icon="bulb-outline"
-            tint={accent.carpark}
+            category="carpark"
             onPress={() => router.push("/recommendations")}
-            last
           />
-        </View>
+        </ListGroup>
 
-        <Text style={styles.section}>About</Text>
-        <View style={styles.group}>
-          <InfoRow label="Version" value={version} />
-          <InfoRow label="Region" value="Singapore (ap-southeast-1)" />
-          <InfoRow label="API" value={apiUrl.replace(/^https?:\/\//, "")} last />
-        </View>
+        <GroupLabel>About</GroupLabel>
+        <ListGroup>
+          <ListRow title="Version" value={version} />
+          <ListRow title="Region" value="Singapore (ap-southeast-1)" />
+          <ListRow title="API" value={apiUrl.replace(/^https?:\/\//, "")} />
+        </ListGroup>
 
-        <Pressable style={styles.signOut} onPress={() => void signOut()}>
-          <Text style={styles.signOutText}>Sign out</Text>
-        </Pressable>
+        <Button
+          label="Sign out"
+          icon="log-out-outline"
+          variant="dangerSoft"
+          onPress={() => void signOut()}
+          style={styles.signOut}
+        />
       </ScrollView>
-    </SafeAreaView>
+    </Screen>
   );
 }
 
-function Row({
-  label,
-  icon,
-  tint,
-  onPress,
-  last,
-}: {
-  label: string;
-  icon: IoniconName;
-  tint: string;
-  onPress: () => void;
-  last?: boolean;
-}) {
-  return (
-    <Pressable style={[styles.row, !last && styles.rowBorder]} onPress={onPress}>
-      <View style={[styles.rowIconWrap, { backgroundColor: tint + "1a" }]}>
-        <Ionicons name={icon} size={18} color={tint} />
-      </View>
-      <Text style={styles.rowLabel}>{label}</Text>
-      <Ionicons name="chevron-forward" size={18} color={colors.textDim} />
-    </Pressable>
-  );
-}
-
-function InfoRow({ label, value, last }: { label: string; value: string; last?: boolean }) {
-  return (
-    <View style={[styles.row, !last && styles.rowBorder]}>
-      <Text style={styles.rowLabel}>{label}</Text>
-      <Text style={styles.infoValue} numberOfLines={1}>
-        {value}
-      </Text>
-    </View>
-  );
-}
-
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#f5f7fb" },
-  inner: { padding: 16, gap: 8 },
-  profileCard: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 14,
-    backgroundColor: "#ffffff",
-    borderColor: "#e4e9f2",
-    borderWidth: 1,
-    borderRadius: 14,
-    padding: 16,
-    ...shadow,
-  },
-  avatar: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  avatarText: { color: "#fff", fontSize: 22, fontWeight: "800" },
-  name: { color: "#0f172a", fontSize: 17, fontWeight: "700" },
-  email: { color: "#5b6b86", fontSize: 13, marginTop: 2 },
-  section: { color: "#5b6b86", fontSize: 13, fontWeight: "700", marginTop: 14, marginLeft: 4 },
-  group: {
-    backgroundColor: "#ffffff",
-    borderColor: "#e4e9f2",
-    borderWidth: 1,
-    borderRadius: 14,
-    paddingHorizontal: 16,
-    ...shadow,
-  },
-  row: { flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 13 },
-  rowBorder: { borderBottomColor: "#e4e9f2", borderBottomWidth: 1 },
-  rowIconWrap: {
-    width: 34,
-    height: 34,
-    borderRadius: radius.sm,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  rowLabel: { color: "#0f172a", fontSize: 15, flex: 1 },
-  infoValue: { color: "#5b6b86", fontSize: 13, maxWidth: "60%" },
-  signOut: { alignItems: "center", paddingVertical: 16, marginTop: 10 },
-  signOutText: { color: "#dc2626", fontSize: 15, fontWeight: "700" },
-});
+const useStyles = makeStyles(() => ({
+  flex: { flex: 1, minWidth: 0 },
+  content: { padding: space.xl, paddingTop: space.xs },
+  profile: { flexDirection: "row", alignItems: "center", gap: space.lg, marginTop: space.lg },
+  signOut: { marginTop: space.xxl },
+}));
